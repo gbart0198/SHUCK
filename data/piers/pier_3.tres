@@ -1,0 +1,33 @@
+[gd_resource type="Resource" script_class="PierData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/pier_data.gd" id="1_oin4y"]
+
+[resource]
+script = ExtResource("1_oin4y")
+id = 3
+name_key = "PIER_3"
+tagline_key = "PIER_3_TAG"
+ticket_count = 11
+quota = 600
+price_scale = 1.7
+shift_seconds = 660.0
+spawn_interval = 60.0
+species = PackedStringArray("kumamoto", "pacific_gigas", "razor_clam")
+hazard_key = "PIER3_HAZARD"
+has_boss = true
+boss_species = "king_oyster"
+relic_id = "raft_comb"
+named_pearl = "raft_heart"
+chaos_weights = PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1)
+sky_top = Color(0.16, 0.1, 0.22, 1)
+sky_bottom = Color(0.45, 0.32, 0.48, 1)
+fog_color = Color(0.3, 0.26, 0.36, 1)
+light_color = Color(0.85, 0.65, 0.95, 1)
+light_energy = 0.9
+water_color = Color(0.1, 0.14, 0.24, 1)
+wood_color = Color(0.3, 0.22, 0.2, 1)
+wall_color = Color(0.28, 0.24, 0.32, 1)
+accent_color = Color(0.9, 0.35, 0.6, 1)
+ambient_energy = 0.5
+gull_count = 5
+tilt = 0.02

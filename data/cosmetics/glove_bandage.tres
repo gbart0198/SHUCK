@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_bfqa8"]
+
+[resource]
+script = ExtResource("1_bfqa8")
+id = "glove_bandage"
+name_key = "COS_GLOVE_BANDAGE"
+slot = "glove"
+price = 0
+color = Color(0.85, 0.82, 0.75, 1)
+badge_only = true

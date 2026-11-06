@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TicketModifierData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/ticket_modifier_data.gd" id="1_21feh"]
+
+[resource]
+script = ExtResource("1_21feh")
+id = "still_alive"
+name_key = "MOD_STILL_ALIVE"
+pay_bonus = 0.6
+patience_delta = -3.0
+no_pop = true

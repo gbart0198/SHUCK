@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UpgradeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/upgrade_data.gd" id="1_je1ik"]
+
+[resource]
+script = ExtResource("1_je1ik")
+line = "bench"
+tier = 5
+name_key = "UP_BENCH_5"
+desc_key = "UP_BENCH_5_D"
+cost = 2600
+unlock_pier = 0

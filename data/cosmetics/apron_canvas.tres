@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_amog7"]
+
+[resource]
+script = ExtResource("1_amog7")
+id = "apron_canvas"
+name_key = "COS_APRON_CANVAS"
+slot = "apron"
+price = 90
+color = Color(0.6, 0.55, 0.42, 1)

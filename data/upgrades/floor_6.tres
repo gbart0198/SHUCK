@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="UpgradeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/upgrade_data.gd" id="1_dhcfs"]
+
+[resource]
+script = ExtResource("1_dhcfs")
+line = "floor"
+tier = 6
+name_key = "UP_FLOOR_6"
+desc_key = "UP_FLOOR_6_D"
+cost = 6500
+unlock_pier = 0

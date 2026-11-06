@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BalanceData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/balance_data.gd" id="1_2gprt"]
+
+[resource]
+script = ExtResource("1_2gprt")
+knife_tolerances = PackedFloat32Array(6, 9, 9, 9, 15, 18)
+knife_wander_mult = PackedFloat32Array(1, 1, 1, 1, 0.7, 0.7)
+bench_freshness = PackedFloat32Array(90, 120, 600, 600, 600, 600)
+plated_hold = PackedFloat32Array(8, 8, 8, 8, 28, 28)
+bench_slots = PackedInt32Array(1, 2, 2, 2, 2, 4)
+ranks = PackedInt32Array(0, 120, 380, 900, 1800, 3200)
+rank_names = PackedStringArray("RANK_DECKHAND", "RANK_SHUCKER", "RANK_FIRST", "RANK_DOCKBOSS", "RANK_PEARLBARON", "RANK_TIDEBREAKER")
+coop_ticket_scale = PackedFloat32Array(1, 2.2, 3.2, 4)
+coop_income_scale = PackedFloat32Array(1, 2, 2.9, 3.6)

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_alpdl"]
+
+[resource]
+script = ExtResource("1_alpdl")
+id = "bucket_galv"
+name_key = "COS_BUCKET_GALV"
+slot = "bucket"
+price = 80
+color = Color(0.6, 0.62, 0.65, 1)

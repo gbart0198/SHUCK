@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ChaosData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/chaos_data.gd" id="1_ao8te"]
+
+[resource]
+script = ExtResource("1_ao8te")
+id = "rival_van"
+name_key = "CHAOS_RIVAL_VAN"
+duration = 4.0
+subtitle_key = "CHAOS_RIVAL_VAN_SUB"
+effect = "rival"

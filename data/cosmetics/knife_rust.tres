@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_j7ngs"]
+
+[resource]
+script = ExtResource("1_j7ngs")
+id = "knife_rust"
+name_key = "COS_KNIFE_RUST"
+slot = "knife"
+price = 0
+color = Color(0.45, 0.32, 0.22, 1)

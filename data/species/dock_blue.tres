@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="SpeciesData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/species_data.gd" id="1_38ywx"]
+
+[resource]
+script = ExtResource("1_38ywx")
+id = "dock_blue"
+name_key = "SPECIES_DOCK_BLUE"
+slide_tolerance = 8.0
+notes_key = "SPECIES_DOCK_BLUE_NOTE"
+shell_color = Color(0.55, 0.6, 0.63, 1)
+ridge_color = Color(0.38, 0.43, 0.46, 1)

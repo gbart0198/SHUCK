@@ -1,0 +1,13 @@
+{
+  "goal": "Build SHUCK per SPEC.md: data-driven Godot 4.7 project with the four-gesture shuck (M0), a full playable shift with ledger/shop/save (M1), piers 2-6 content, boss shifts, relics and Tides (M2/M3), then minimal netcode and ship polish.",
+  "mustNotBreak": [
+    "Headless import exits 0 with no import errors",
+    "tests/smoke.gd exits 0 covering oyster FSM, grades S/A/B/C/F, ticket payout/tip, upgrade costs, 100k pearl roll distribution, save round-trip+version",
+    "Game launches and one complete shift is playable start to finish with mouse+keyboard",
+    "Pearls are rolled at spawn, never on open",
+    "No balance numbers hard-coded in scenes; data lives in res://data/*.tres",
+    "SPEC.md is not edited"
+  ],
+  "maxAttempts": 3,
+  "verify": "/Users/gbart/Downloads/Godot.app/Contents/MacOS/Godot --headless --import --path . && /Users/gbart/Downloads/Godot.app/Contents/MacOS/Godot --headless --path . --script tests/smoke.gd"
+}

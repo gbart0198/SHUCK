@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TideData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/tide_data.gd" id="1_mvmcm"]
+
+[resource]
+script = ExtResource("1_mvmcm")
+id = "neap"
+name_key = "TIDE_NEAP"
+desc_key = "TIDE_NEAP_D"
+payout_mult = 0.9
+patience_mult = 1.2

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TideData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/tide_data.gd" id="1_iaa0h"]
+
+[resource]
+script = ExtResource("1_iaa0h")
+id = "low_water"
+name_key = "TIDE_LOW_WATER"
+desc_key = "TIDE_LOW_WATER_D"
+payout_mult = 1.2
+gadget_slots = 1

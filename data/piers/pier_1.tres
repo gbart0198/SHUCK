@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="PierData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/pier_data.gd" id="1_kp6lx"]
+
+[resource]
+script = ExtResource("1_kp6lx")
+name_key = "PIER_1"
+tagline_key = "PIER_1_TAG"
+shift_seconds = 560.0
+spawn_interval = 70.0
+species = PackedStringArray("dock_blue")
+hazard_key = "PIER1_HAZARD"
+relic_id = "jetty_wheel"
+chaos_weights = PackedFloat32Array(1, 1, 1, 1, 1, 1, 1, 1, 1)
+sky_top = Color(0.1, 0.16, 0.26, 1)
+sky_bottom = Color(0.72, 0.46, 0.3, 1)
+fog_color = Color(0.4, 0.36, 0.34, 1)
+light_color = Color(1, 0.78, 0.55, 1)
+light_energy = 1.5
+water_color = Color(0.07, 0.18, 0.24, 1)
+wood_color = Color(0.36, 0.25, 0.16, 1)
+wall_color = Color(0.2, 0.24, 0.26, 1)
+accent_color = Color(0.86, 0.47, 0.24, 1)

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_4kjhg"]
+
+[resource]
+script = ExtResource("1_4kjhg")
+id = "apron_leather"
+name_key = "COS_APRON_LEATHER"
+slot = "apron"
+price = 260
+color = Color(0.28, 0.18, 0.12, 1)

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_f5urc"]
+
+[resource]
+script = ExtResource("1_f5urc")
+id = "hat_diver"
+name_key = "COS_HAT_DIVER"
+price = 340
+color = Color(0.3, 0.5, 0.45, 1)

@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_yhdti"]
+
+[resource]
+script = ExtResource("1_yhdti")
+id = "hook_brass"
+name_key = "COS_HOOK_BRASS"
+slot = "hook"
+price = 180
+color = Color(0.75, 0.6, 0.25, 1)

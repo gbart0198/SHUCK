@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="InteractionStep" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/interaction_step.gd" id="1_5hk36"]
+
+[resource]
+script = ExtResource("1_5hk36")
+id = "wedge"
+duration = 0.6
+skill = "hold_release"
+params = {
+"band": [0.55, 0.75],
+"meter": "bite",
+"next": "pop"
+}

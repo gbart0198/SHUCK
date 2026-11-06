@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="GadgetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/gadget_data.gd" id="1_uvnjm"]
+
+[resource]
+script = ExtResource("1_uvnjm")
+id = "shop_dog"
+name_key = "GADGET_SHOP_DOG"
+desc_key = "GADGET_SHOP_DOG_D"
+cost = 400
+uses = 0
+permanent = true

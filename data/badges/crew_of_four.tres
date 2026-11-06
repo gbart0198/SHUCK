@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="BadgeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/badge_data.gd" id="1_yh1jw"]
+
+[resource]
+script = ExtResource("1_yh1jw")
+id = "crew_of_four"
+name_key = "BADGE_CREW_OF_FOUR"
+desc_key = "BADGE_CREW_OF_FOUR_D"
+reward_cosmetic = "hat_crew"

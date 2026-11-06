@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_nmx0x"]
+
+[resource]
+script = ExtResource("1_nmx0x")
+id = "radio_fm"
+name_key = "COS_RADIO_FM"
+slot = "radio"
+price = 100
+color = Color(0.3, 0.35, 0.4, 1)

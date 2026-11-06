@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SpeciesData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/species_data.gd" id="1_i36xa"]
+
+[resource]
+script = ExtResource("1_i36xa")
+id = "king_oyster"
+name_key = "SPECIES_KING_OYSTER"
+pier = 6
+value_cents = 200
+pearl_chance = 0.4
+notes_key = "SPECIES_KING_NOTE"
+is_boss = true
+shell_color = Color(0.45, 0.36, 0.24, 1)
+ridge_color = Color(0.26, 0.2, 0.12, 1)
+mesh_scale = Vector3(2.4, 1, 2.8)

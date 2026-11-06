@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="GadgetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/gadget_data.gd" id="1_l1i84"]
+
+[resource]
+script = ExtResource("1_l1i84")
+id = "ice_bucket"
+name_key = "GADGET_ICE_BUCKET"
+desc_key = "GADGET_ICE_BUCKET_D"
+cost = 80

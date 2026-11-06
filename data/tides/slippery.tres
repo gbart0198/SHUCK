@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TideData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/tide_data.gd" id="1_wiu21"]
+
+[resource]
+script = ExtResource("1_wiu21")
+id = "slippery"
+name_key = "TIDE_SLIPPERY"
+desc_key = "TIDE_SLIPPERY_D"
+payout_mult = 1.3
+tolerance_mult = 0.7

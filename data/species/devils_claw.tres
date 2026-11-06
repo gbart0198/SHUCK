@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="SpeciesData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/species_data.gd" id="1_e7oco"]
+
+[resource]
+script = ExtResource("1_e7oco")
+id = "devils_claw"
+name_key = "SPECIES_DEVILS_CLAW"
+pier = 5
+value_cents = 55
+pearl_chance = 0.12
+requires_gloves_tier = 4
+notes_key = "SPECIES_DEVIL_NOTE"
+shell_color = Color(0.42, 0.28, 0.3, 1)
+ridge_color = Color(0.24, 0.16, 0.18, 1)
+mesh_scale = Vector3(1.15, 0.55, 1.35)

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SpeciesData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/species_data.gd" id="1_of87l"]
+
+[resource]
+script = ExtResource("1_of87l")
+id = "pacific_gigas"
+name_key = "SPECIES_PACIFIC_GIGAS"
+pier = 2
+value_cents = 22
+pearl_chance = 0.03
+gesture_time_add = 0.3
+meat_yield = 2
+notes_key = "SPECIES_GIGAS_NOTE"
+shell_color = Color(0.7, 0.68, 0.6, 1)
+ridge_color = Color(0.5, 0.48, 0.42, 1)
+mesh_scale = Vector3(1.25, 0.5, 1.5)

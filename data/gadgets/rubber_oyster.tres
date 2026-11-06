@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="GadgetData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/gadget_data.gd" id="1_ki68r"]
+
+[resource]
+script = ExtResource("1_ki68r")
+id = "rubber_oyster"
+name_key = "GADGET_RUBBER_OYSTER"
+desc_key = "GADGET_RUBBER_OYSTER_D"
+cost = 30

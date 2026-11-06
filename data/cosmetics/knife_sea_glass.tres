@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_nndxb"]
+
+[resource]
+script = ExtResource("1_nndxb")
+id = "knife_sea_glass"
+name_key = "COS_KNIFE_SEA_GLASS"
+slot = "knife"
+price = 0
+color = Color(0.35, 0.8, 0.75, 1)
+badge_only = true

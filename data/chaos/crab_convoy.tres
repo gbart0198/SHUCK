@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="ChaosData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/chaos_data.gd" id="1_yg7mr"]
+
+[resource]
+script = ExtResource("1_yg7mr")
+id = "crab_convoy"
+name_key = "CHAOS_CRAB_CONVOY"
+duration = 8.0
+subtitle_key = "CHAOS_CRAB_CONVOY_SUB"
+effect = "crab"

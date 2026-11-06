@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="TideData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/tide_data.gd" id="1_fa8jd"]
+
+[resource]
+script = ExtResource("1_fa8jd")
+id = "hungry"
+name_key = "TIDE_HUNGRY"
+desc_key = "TIDE_HUNGRY_D"
+payout_mult = 1.5
+quota_mult = 1.5

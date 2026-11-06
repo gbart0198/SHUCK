@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="CosmeticData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/cosmetic_data.gd" id="1_6x6b6"]
+
+[resource]
+script = ExtResource("1_6x6b6")
+id = "sign_open"
+name_key = "COS_SIGN_OPEN"
+slot = "sign"
+price = 240
+color = Color(0.2, 0.8, 0.5, 1)

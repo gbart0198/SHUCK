@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="BadgeData" format=3]
+
+[ext_resource type="Script" path="res://scripts/core/badge_data.gd" id="1_fy012"]
+
+[resource]
+script = ExtResource("1_fy012")
+id = "gulled"
+name_key = "BADGE_GULLED"
+desc_key = "BADGE_GULLED_D"
+reward_cosmetic = "hat_gull"
