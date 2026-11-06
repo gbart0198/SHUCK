@@ -13,7 +13,8 @@ func setup(r: Dictionary) -> void:
 	result = r
 	font = ThemeDB.fallback_font
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = get_viewport_rect().size
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.03, 0.04, 0.86)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)

@@ -60,6 +60,9 @@ var nicked_timer := 0.0
 var rash := false
 var msg_timer := 0.0
 var msg := ""
+var fainted := false
+var faint_timer := 0.0
+var nick_times: Array[float] = []
 var bob_t := 0.0
 var last_camera_rot := Vector2.ZERO
 var move_amount := 0.0
@@ -146,6 +149,11 @@ func _process(dt: float) -> void:
 		lmb_pressed = false
 		lmb_released = false
 		return
+	if fainted:
+		_faint_process(dt)
+		lmb_pressed = false
+		lmb_released = false
+		return
 	_update_focus()
 	_update_hands(dt)
 	if gesture_phase == G.NONE:
@@ -165,7 +173,7 @@ func _process(dt: float) -> void:
 	lmb_released = false
 
 func _physics_process(dt: float) -> void:
-	if locked:
+	if locked or fainted:
 		velocity = Vector3.ZERO
 		move_and_slide()
 		return
@@ -339,18 +347,26 @@ func _finish_wedge() -> void:
 			if sim.nicked:
 				nicked = true
 				nicked_timer = 12.0
+				_note_nick()
 				_toast("Nicked. The shell is fine. Your hand is not.")
 			else:
 				_toast("Slip. No damage this time.")
 		_:
 			Sfx.play("click", -8.0, 1.2)
 			if sim.state == OysterSim.State.SEATED:
-				if force_no_pop:
+				var next := _step_next("wedge")
+				if force_no_pop or next == "slide":
 					sim.slide_begin()
 					_start_slide()
 				else:
 					sim.pop_begin()
 					_set_phase(G.POP)
+
+func _step_next(id: String) -> String:
+	var s: InteractionStep = Registry.steps.get(id, null)
+	if s == null:
+		return ""
+	return str(s.params.get("next", ""))
 
 func _process_pop(dt: float) -> void:
 	if not sim.pop_active:
@@ -375,6 +391,43 @@ func _process_pop(dt: float) -> void:
 			hands.show_oyster(sim.species, true, sim.pearls.size() > 0)
 			sim.slide_begin()
 			_start_slide()
+
+func _note_nick() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	nick_times.append(now)
+	while nick_times.size() > 4:
+		nick_times.pop_front()
+	var recent := 0
+	for t in nick_times:
+		if now - t <= 60.0:
+			recent += 1
+	var limit := 3 if Game.tier("gloves") >= 6 else 2
+	if recent >= limit:
+		_faint()
+
+func _faint() -> void:
+	if fainted:
+		return
+	fainted = true
+	faint_timer = Registry.balance.faint_seconds
+	nick_times.clear()
+	Game.session["faints"] = int(Game.session.get("faints", 0)) + 1
+	Game.bump_stat("faints")
+	if held_oyster != null:
+		_toast("You faint. Everything hits the floor.")
+		release_gesture()
+	head.position.y = 0.55
+	head.rotation.z = 0.5
+	Sfx.play("thud")
+
+func _faint_process(dt: float) -> void:
+	faint_timer -= dt
+	head.position.y = lerpf(head.position.y, 0.32, dt * 6.0)
+	if faint_timer <= 0.0:
+		fainted = false
+		head.position.y = 1.62
+		head.rotation.z = 0.0
+		_toast("You come to. The ticket is still running.")
 
 func _start_slide() -> void:
 	var vs := get_viewport().get_visible_rect().size
@@ -550,6 +603,8 @@ func gesture_info() -> Dictionary:
 		"drill_center": _drill_geometry()[0],
 		"drill_radius": _drill_geometry()[1],
 		"nicked": nicked,
+		"fainted": fainted,
+		"faint_timer": faint_timer,
 		"grade": last_grade,
 		"grade_timer": grade_timer,
 		"toast": msg,

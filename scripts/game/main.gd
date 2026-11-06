@@ -8,6 +8,7 @@ var log_ui: PearlLogUI
 var last_pier := 1
 var last_tides: Array = []
 var last_result: Dictionary = {}
+var ui_layer: CanvasLayer
 
 func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
@@ -47,6 +48,12 @@ func _ready() -> void:
 
 func _setup_gesture_demo(phase: String) -> void:
 	if shift == null:
+		return
+	if phase == "ledger":
+		shift.earnings = 184
+		shift.tips = 42
+		shift.walked_out = 1
+		shift._end_shift()
 		return
 	shift._spawn_ticket()
 	if shift.cards.is_empty():
@@ -159,12 +166,18 @@ func open_shop() -> void:
 	if shop != null:
 		return
 	_pause_shift_for_ui()
+	ui_layer = CanvasLayer.new()
+	ui_layer.layer = 30
+	add_child(ui_layer)
 	shop = ShopUI.new()
-	add_child(shop)
+	ui_layer.add_child(shop)
 	shop.closed.connect(func() -> void:
 		Game.write_save()
 		shop.queue_free()
 		shop = null
+		if ui_layer != null and is_instance_valid(ui_layer):
+			ui_layer.queue_free()
+			ui_layer = null
 		_resume_shift_after_ui()
 		if lobby != null and is_instance_valid(lobby):
 			lobby._refresh_stats())
@@ -173,9 +186,15 @@ func open_log() -> void:
 	if log_ui != null:
 		return
 	_pause_shift_for_ui()
+	ui_layer = CanvasLayer.new()
+	ui_layer.layer = 30
+	add_child(ui_layer)
 	log_ui = PearlLogUI.new()
-	add_child(log_ui)
+	ui_layer.add_child(log_ui)
 	log_ui.closed.connect(func() -> void:
 		log_ui.queue_free()
 		log_ui = null
+		if ui_layer != null and is_instance_valid(ui_layer):
+			ui_layer.queue_free()
+			ui_layer = null
 		_resume_shift_after_ui())

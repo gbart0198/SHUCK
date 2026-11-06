@@ -68,6 +68,9 @@ var auto_timer := 0.0
 var otto_timer := 0.0
 var slick_timer := 0.0
 var late_serve := false
+var board_label: Label3D
+var case_root: Node3D
+var dog: Node3D
 
 func configure(p_pier: int, p_tides: Array, p_seed: int, p_boss := false, p_daily := false) -> void:
 	pier = Registry.get_pier(p_pier)
@@ -150,10 +153,87 @@ func _build_station() -> void:
 		rail_root.add_child(MeshFactory.box(Vector3(0.04, 0.04, 0.04), Color(0.5, 0.52, 0.54), Vector3(x, 1.62, -1.62)))
 	rail_root.add_child(MeshFactory.box(Vector3(3.4, 0.02, 0.20), Color(0.30, 0.22, 0.16), Vector3(0, 1.70, -1.55)))
 
+	_build_pearl_case()
+	_build_board()
+	if int(Game.state.get("gadgets", {}).get("shop_dog", 0)) > 0:
+		_build_dog()
+
 	# towel + sink (status cures, physical props)
 	for spot in [Vector3(-3.2, 1.12, -0.45), Vector3(3.2, 1.12, -0.45)]:
 		var b := MeshFactory.box(Vector3(0.55, 0.06, 0.4), Color(0.55, 0.58, 0.58), spot)
 		add_child(b)
+
+func _build_pearl_case() -> void:
+	if not refs.has("counter_top"):
+		return
+	case_root = Node3D.new()
+	case_root.position = Vector3(3.05, 1.18, -1.35)
+	case_root.rotation.y = -0.35
+	add_child(case_root)
+	case_root.add_child(MeshFactory.box(Vector3(0.82, 0.06, 0.42), pier.wood_color.lightened(0.1), Vector3(0, -0.06, 0)))
+	var glass := MeshFactory.box(Vector3(0.80, 0.34, 0.40), Color(0.7, 0.85, 0.9, 0.18))
+	var gm := StandardMaterial3D.new()
+	gm.albedo_color = Color(0.7, 0.85, 0.9, 0.16)
+	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gm.roughness = 0.1
+	glass.material_override = gm
+	case_root.add_child(glass)
+	case_root.add_child(MeshFactory.box(Vector3(0.82, 0.02, 0.42), pier.accent_color, Vector3(0, 0.18, 0)))
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.9, 0.7)
+	light.light_energy = 0.8
+	light.omni_range = 1.4
+	light.position = Vector3(0, 0.24, 0)
+	case_root.add_child(light)
+	var pearls: Array = Game.state.get("pearls", [])
+	var shown := mini(12, pearls.size())
+	for i in shown:
+		var d: Dictionary = pearls[pearls.size() - 1 - i]
+		var colour: Color = Registry.pearl_config.colour_values[int(d.get("colour", 0))]
+		var radius := 0.035 + float(d.get("size", 6.0)) * 0.0015
+		var p := MeshFactory.pearl(colour, radius)
+		var col := i % 4
+		var row := int(i / 4)
+		p.position = Vector3(-0.27 + col * 0.18, 0.02, -0.10 + row * 0.11)
+		case_root.add_child(p)
+	var label := Label3D.new()
+	label.text = "PEARL CASE  %d/12" % shown
+	label.font_size = 26
+	label.pixel_size = 0.0012
+	label.position = Vector3(0, 0.30, 0.12)
+	label.modulate = Color(0.95, 0.9, 0.75)
+	case_root.add_child(label)
+
+func _build_board() -> void:
+	if not refs.has("board_pos"):
+		return
+	board_label = Label3D.new()
+	board_label.font_size = 40
+	board_label.pixel_size = 0.0026
+	board_label.position = refs.board_pos + Vector3(0, 0.02, 0.05)
+	board_label.modulate = Color(0.92, 0.9, 0.82)
+	board_label.outline_size = 0
+	add_child(board_label)
+	_update_board()
+
+func _update_board() -> void:
+	if board_label == null:
+		return
+	board_label.text = "%s\nQUOTA  %d\nON THE WALL  %d" % [Data.t(pier.name_key, "PIER").to_upper(), quota, earnings + tips]
+
+func _build_dog() -> void:
+	dog = Node3D.new()
+	dog.position = Vector3(2.55, 0.0, 1.55)
+	add_child(dog)
+	dog.add_child(MeshFactory.box(Vector3(0.36, 0.24, 0.62), Color(0.55, 0.4, 0.26), Vector3(0, 0.36, 0)))
+	var head := MeshFactory.box(Vector3(0.26, 0.24, 0.26), Color(0.6, 0.45, 0.3), Vector3(0, 0.52, -0.36))
+	dog.add_child(head)
+	dog.add_child(MeshFactory.box(Vector3(0.05, 0.05, 0.10), Color(0.2, 0.18, 0.16), Vector3(0, 0.52, -0.50)))
+	for x in [-0.13, 0.13]:
+		for z in [-0.22, 0.22]:
+			dog.add_child(MeshFactory.box(Vector3(0.07, 0.26, 0.07), Color(0.5, 0.36, 0.24), Vector3(x, 0.13, z)))
+	var tail := MeshFactory.box(Vector3(0.05, 0.05, 0.28), Color(0.6, 0.45, 0.3), Vector3(0, 0.46, 0.36), Vector3(0.3, 0, 0))
+	dog.add_child(tail)
 
 func _build_player() -> void:
 	player = Player.new()
@@ -209,6 +289,7 @@ func _process(dt: float) -> void:
 	if subtitle_timer > 0.0:
 		subtitle_timer -= dt
 	_refresh_hud_prompt()
+	_update_board()
 
 	if boss_mode:
 		_process_boss(dt)
@@ -313,6 +394,13 @@ func _spawn_from_active() -> void:
 	var chance := clampf(sp.pearl_chance * luck, 0.0, 1.0)
 	# pearls are rolled HERE, at spawn, and never when the shell opens.
 	sim.setup_pearls(PearlRoller.roll(rng, chance, pier.id))
+	for pearl in sim.pearls:
+		if pearl.trait_id == "tidewrought" and pearl.named == "":
+			pearl.named = "tidewrought"
+	# Cursed Oysters can also cough up one of the pier's named pearls.
+	if sp.id == "cursed_oyster" and not sim.pearls.is_empty() and rng.randf() < 0.03:
+		sim.pearls[0].named = _next_named_pearl()
+		sim.pearls[0].value = 2500
 	var node := OysterNode.new()
 	node.setup(sp, sim, free)
 	node.position = bench_positions[free]
@@ -322,6 +410,16 @@ func _spawn_from_active() -> void:
 	bench_root.add_child(node)
 	oysters.append(node)
 
+func _next_named_pearl() -> String:
+	var owned := []
+	for p in Game.state.get("pearls", []):
+		if str(p.get("named", "")) != "":
+			owned.append(str(p.named))
+	for d in Registry.pearl_config.named_pearls:
+		if not owned.has(str(d.id)) and str(d.id) != "tidewrought":
+			return str(d.id)
+	return "trench_die"
+
 func _on_oyster_resolved(oyster: OysterNode, sim: OysterSim) -> void:
 	Game.session["oysters"] = int(Game.session.get("oysters", 0)) + 1
 	oysters.erase(oyster)
@@ -330,6 +428,8 @@ func _on_oyster_resolved(oyster: OysterNode, sim: OysterSim) -> void:
 	if sim.state == OysterSim.State.PLATED:
 		plate.add_plated(sim)
 		_collect_pearls(sim)
+		if boss_mode and oyster == boss_oyster:
+			_finish_boss(true)
 		if sim.grade == "S":
 			_toast("S — perfect. It pays 1.6x.")
 		if active_ticket == null:
@@ -583,6 +683,10 @@ func _apply_chaos(c: ChaosData) -> void:
 		_subtitle(Data.t("CHAOS_BRINE_SPILL_SUB", "The floor is slick."), 3.0)
 
 func _spawn_thief(winged: bool) -> void:
+	if dog != null and rng.randf() < 0.5:
+		_subtitle(Data.t("CHAOS_DOG_SUB", "The shop dog got there first."), 2.5)
+		Sfx.play("gull", -10.0, 1.3)
+		return
 	var victim: OysterNode
 	for o in oysters:
 		if is_instance_valid(o) and not o.held:
@@ -789,8 +893,15 @@ func _award_badges(quota_met: bool) -> Array:
 
 func _show_ledger(result: Dictionary) -> void:
 	player.set_locked(true)
+	if hud != null:
+		hud.hide_ui = true
+	if overlay != null:
+		overlay.visible = false
+	var layer := CanvasLayer.new()
+	layer.layer = 10
+	add_child(layer)
 	ledger = LedgerUI.new()
-	add_child(ledger)
+	layer.add_child(ledger)
 	ledger.setup(result)
 	ledger.shop_pressed.connect(func() -> void: open_shop_requested.emit())
 	ledger.next_pressed.connect(func() -> void: next_shift_requested.emit())

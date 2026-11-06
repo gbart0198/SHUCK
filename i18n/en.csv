@@ -309,3 +309,5 @@
 "UP_KNIFE_5_D","Slide tolerance jumps to 15 px; wander −30%."
 "UP_KNIFE_6","The Inherited Blade"
 "UP_KNIFE_6_D","Perfect pops auto-succeed; one free Slip per shift."
+"CHAOS_DOG_SUB","The shop dog got there first."
+"LOBBY_SAVED","Save loaded from user://save.json"

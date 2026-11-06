@@ -19,7 +19,8 @@ var status_label: Label
 var net_ip: LineEdit
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = get_viewport_rect().size
 	selected_pier = clampi(int(Game.state.get("pier", 1)), 1, 6)
 	var grad := Gradient.new()
 	grad.set_color(0, Color(0.03, 0.06, 0.09))
@@ -116,8 +117,10 @@ func _ready() -> void:
 	_build_piers()
 	_build_tides()
 	_refresh_mult()
-	if Game.last_error != "":
+	if Game.last_error != "" and Game.last_error != "missing":
 		status_label.text = "save: " + Game.last_error
+	elif FileAccess.file_exists(SaveGame.DEFAULT_PATH):
+		status_label.text = Data.t("LOBBY_SAVED", "Save loaded from user://save.json")
 
 func _rule() -> Control:
 	var c := ColorRect.new()

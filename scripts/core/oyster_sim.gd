@@ -86,7 +86,8 @@ func wedge_tick(dt: float) -> void:
 	if stage != Stage.WEDGE:
 		return
 	var speed := balance.wet_hands_meter_speed if wet_hands else 1.0
-	var dur := balance.wedge_duration + species.gesture_time_add
+	var step: InteractionStep = Registry.steps.get("wedge", null)
+	var dur := (step.duration if step != null and step.duration > 0.0 else balance.wedge_duration) + species.gesture_time_add
 	if dur <= 0.0:
 		dur = balance.wedge_duration
 	wedge_value += (dt / dur) * speed
@@ -135,7 +136,8 @@ func pop_begin() -> void:
 func pop_tick(dt: float) -> void:
 	if not pop_active:
 		return
-	var dur := balance.pop_duration + species.gesture_time_add
+	var pop_step: InteractionStep = Registry.steps.get("pop", null)
+	var dur := (pop_step.duration if pop_step != null and pop_step.duration > 0.0 else balance.pop_duration) + species.gesture_time_add
 	pop_ring -= dt / maxf(dur, 0.01)
 	time_elapsed += dt
 	if pop_ring <= 0.0:

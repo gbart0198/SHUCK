@@ -12,8 +12,17 @@ func ck(cond: bool, msg: String) -> void:
 		fails.append(msg)
 		print("  FAIL ", msg)
 
+func near_tol(a: float, b: float, tol := 0.001) -> bool:
+	return absf(a - b) <= tol
+
 func frame(p: Player, dt := 0.016) -> void:
 	p._process(dt)
+
+func look_at_point(p: Player, point: Vector3) -> void:
+	var d: Vector3 = point - p.main_camera.global_position
+	p.rotation.y = atan2(-d.x, -d.z)
+	p.head.rotation.x = atan2(d.y, sqrt(d.x * d.x + d.z * d.z))
+	p._update_focus()
 
 func run(main: Node) -> int:
 	var save_path := "user://save.json"
@@ -31,13 +40,19 @@ func run(main: Node) -> int:
 	ck(shift.player != null, "player exists")
 	shift._spawn_ticket()
 	ck(shift.cards.size() == 1, "ticket card on rail")
-	shift._on_ticket_clicked(shift.cards[0])
-	ck(shift.active_ticket != null, "ticket accepted")
+	var p = shift.player
+	look_at_point(p, shift.cards[0].global_position)
+	ck(p.focus == shift.cards[0], "raycast finds the ticket card")
+	if p.focus != null:
+		p.focus.begin(p)
+	ck(shift.active_ticket != null, "ticket accepted through Interactable.begin")
 	shift._spawn_from_active()
 	ck(shift.oysters.size() == 1, "oyster spawned on bench")
-	var p = shift.player
 	var o = shift.oysters[0]
-	p.pick_up(o)
+	look_at_point(p, o.global_position)
+	ck(p.focus == o, "raycast finds the oyster")
+	if p.focus != null:
+		p.focus.begin(p)
 	ck(p.sim == o.sim, "player holds the oyster")
 	# clear the pickup click
 	p.lmb_released = true
@@ -131,6 +146,63 @@ func run(main: Node) -> int:
 	ck(r.ok, "save readable")
 	print("  result total: ", shift.earnings + shift.tips, " quota: ", shift.quota, " walked: ", shift.walked_out,
 		" stars: ", shift.stars, " met: ", shift.earnings + shift.tips >= shift.quota)
+	# purchase + reload: an upgrade must survive a restart
+	Game.state["money"] = 500
+	Game.state["upgrades"]["knife"] = 1
+	Game.state["pier"] = 1
+	var buy := Game.buy_upgrade("knife")
+	ck(buy.ok and Game.tier("knife") == 2, "bought knife tier 2 for 120")
+	ck(Game.money() == 380, "money deducted to 380")
+	Game.write_save()
+	Game.load_game()
+	ck(Game.tier("knife") == 2, "upgrade survives a reload")
+	ck(Game.money() == 380, "money survives a reload")
+	# ---- boss shift on pier 3
+	main.show_lobby()
+	await get_tree().process_frame
+	main._on_start(3, ["slippery"], true, false)
+	await get_tree().process_frame
+	var bs = main.shift
+	ck(bs.boss_mode, "boss shift starts in boss mode")
+	ck(bs.boss_oyster != null, "King Oyster on the bench")
+	ck(near_tol(bs.player._tide_tolerance(), 0.7), "Slippery halves tolerance to 0.7")
+	var boss = bs.boss_oyster
+	var bp = bs.player
+	bp.pick_up(boss)
+	bp.suppress_until_release = false
+	var bsim: OysterSim = boss.sim
+	bsim.wedge_begin()
+	bsim.wedge_tick(0.40)
+	bsim.wedge_release()
+	bsim.pop_begin()
+	bsim.pop_tick(0.36)
+	bsim.pop_click()
+	bsim.slide_begin()
+	for i in 14:
+		bsim.slide_sample(0.0, 900.0, 0.016, bsim.tolerance_px(6))
+	bsim.slide_finish()
+	bsim.reseat(true)
+	bp._resolve()
+	ck(bs.boss_done, "boss plated with time left")
+	ck(Game.state.get("bosses", []).has(3), "boss recorded for pier 3")
+	ck(bs.pearls_found.size() > 0, "Named Pearl awarded")
+	bs._end_shift()
+	await get_tree().process_frame
+	ck(bs.ledger != null, "boss ledger shown")
+	# relic collection
+	main.show_lobby()
+	await get_tree().process_frame
+	main._on_start(1, [], false, false)
+	await get_tree().process_frame
+	var rs = main.shift
+	var relics_nodes = []
+	for c in rs.get_children():
+		if c is Relic:
+			relics_nodes.append(c)
+	ck(not relics_nodes.is_empty(), "relic is hidden in the pier")
+	if not relics_nodes.is_empty():
+		relics_nodes[0].begin(rs.player)
+		ck(Game.state.get("relics", []).has("jetty_wheel"), "relic collected into the save")
 	if backup != "":
 		var f2 := FileAccess.open(save_path, FileAccess.WRITE)
 		f2.store_string(backup)
