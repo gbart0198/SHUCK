@@ -45,6 +45,7 @@ func begin_session(pier_id: int, tide_ids: Array, seed_value: int, daily := fals
 		"served": 0,
 		"ruined": 0,
 		"gulled": 0,
+		"luck": 0.0,
 	}
 
 func money() -> int:

@@ -46,7 +46,7 @@ func _process(_dt: float) -> void:
 	if ticket.accepted and not ticket.completed:
 		text += "\n%.1fs" % ticket.patience_left
 	if ticket.walked_out:
-		text += "\nWALKED OUT"
+		text += "\n" + Data.t("LABEL_WALKED_OUT", "WALKED OUT")
 	label.text = text
 	if ticket.accepted and not ticket.completed:
 		label.modulate = Color(0.75, 0.15, 0.12) if ticket.patience_left < 6.0 else Color(0.14, 0.12, 0.10)

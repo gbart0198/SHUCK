@@ -51,13 +51,13 @@ func _draw_wedge(info: Dictionary, s: Vector2) -> void:
 	if info.wedge > 1.0:
 		draw_rect(Rect2(pos + Vector2(w - 8, -6), Vector2(8, h + 12)), Color(0.9, 0.2, 0.2))
 	draw_rect(Rect2(pos, Vector2(w, h)), Color(0.8, 0.85, 0.85), false, 2.0)
-	var hint := "HOLD LMB — release inside the green"
+	var hint := Data.t("HOW_HINT_WEDGE", "HOLD LMB — release inside the green")
 	if info.wedge >= 0.40 and info.wedge <= 1.0:
-		hint = "RELEASE"
+		hint = Data.t("HOW_RELEASE", "RELEASE")
 	if info.wedge > 1.0:
-		hint = "TOO LONG — slip"
+		hint = Data.t("HOW_TOO_LONG", "TOO LONG — slip")
 	_text(pos + Vector2(0, -18), hint, 22, UiKit.GOLD, w)
-	_text(pos + Vector2(0, h + 34), "0.55–0.75 is clean  •  0.40–0.55 snags  •  >1.00 slips", 16, UiKit.MUTED, w)
+	_text(pos + Vector2(0, h + 34), Data.t("HOW_WEDGE_HELP", "0.55–0.75 is clean  •  0.40–0.55 snags  •  >1.00 slips"), 16, UiKit.MUTED, w)
 
 func _draw_pop(info: Dictionary, s: Vector2) -> void:
 	var center := Vector2(s.x * 0.5, s.y * 0.50)
@@ -79,8 +79,8 @@ func _draw_pop(info: Dictionary, s: Vector2) -> void:
 	if info.pop_active:
 		draw_line(center, center + Vector2(0, -maxf(rr, 1.0)), Color(1, 1, 1, 0.25), 2.0)
 	draw_rect(Rect2(center + Vector2(-R - 40, R + 22), Vector2(R * 2.0 + 80, 62)), Color(0.03, 0.04, 0.05, 0.62))
-	_text(center + Vector2(-R, R + 52), "CLICK when the ring reaches the dot", 22, UiKit.GOLD, R * 2.0)
-	_text(center + Vector2(-R, R + 78), "inner 30% = clean pop  •  30–60% = normal  •  outside = cracked", 15, UiKit.MUTED, R * 2.0)
+	_text(center + Vector2(-R, R + 52), Data.t("HOW_POP", "CLICK when the ring reaches the dot"), 22, UiKit.GOLD, R * 2.0)
+	_text(center + Vector2(-R, R + 78), Data.t("HOW_POP_HELP", "inner 30% = clean pop  •  30–60% = normal  •  outside = cracked"), 15, UiKit.MUTED, R * 2.0)
 
 func _draw_slide(info: Dictionary, s: Vector2) -> void:
 	var pts: PackedVector2Array = info.slide_seam
@@ -105,8 +105,8 @@ func _draw_slide(info: Dictionary, s: Vector2) -> void:
 	draw_circle(cursor, 4.0, col)
 	draw_circle(info.virtual_mouse, 2.0, Color(1, 1, 1, 0.35))
 	draw_rect(Rect2(Vector2(s.x * 0.5 - 460, s.y * 0.62), Vector2(920, 64)), Color(0.03, 0.04, 0.05, 0.62))
-	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 26), "DRAG along the seam — hold LMB, follow the line", 22, UiKit.GOLD, 900)
-	var off := "off-line %.1f px  •  tolerance %.1f px  •  stab at 40" % [offline, tol]
+	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 26), Data.t("HOW_SLIDE", "DRAG along the seam — hold LMB, follow the line"), 22, UiKit.GOLD, 900)
+	var off := Data.t("HOW_SLIDE_HELP", "off-line %0.1f px  •  tolerance %0.1f px  •  stab at 40") % [offline, tol]
 	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 52), off, 16, UiKit.MUTED, 900)
 	# progress
 	var bar := Rect2(Vector2(s.x * 0.5 - 200, s.y * 0.75), Vector2(400, 10))
@@ -127,8 +127,8 @@ func _draw_reseat(info: Dictionary, s: Vector2) -> void:
 	draw_circle(p, 16.0, Color(0.93, 0.88, 0.76))
 	draw_arc(p, 18.0, 0, TAU, 24, Color(1, 1, 1, 0.5), 2.0)
 	draw_rect(Rect2(Vector2(s.x * 0.5 - 460, s.y * 0.62), Vector2(920, 64)), Color(0.03, 0.04, 0.05, 0.62))
-	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 26), "HOLD LMB to pinch — release over the plate", 22, UiKit.GOLD, 900)
-	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 52), "Release anywhere else and it is ruined", 16, UiKit.MUTED, 900)
+	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 26), Data.t("HOW_RESEAT", "HOLD LMB to pinch — release over the plate"), 22, UiKit.GOLD, 900)
+	_text(Vector2(s.x * 0.5 - 450, s.y * 0.62 + 52), Data.t("HOW_RESEAT_HELP", "Release anywhere else and it is ruined"), 16, UiKit.MUTED, 900)
 
 func _draw_drill(info: Dictionary, s: Vector2) -> void:
 	var center: Vector2 = info.get("drill_center", s * 0.5)
@@ -138,7 +138,7 @@ func _draw_drill(info: Dictionary, s: Vector2) -> void:
 	draw_circle(info.virtual_mouse, 6.0, Color(1, 1, 1))
 	var p: float = info.drill
 	draw_arc(center, radius + 16.0, -PI * 0.5, -PI * 0.5 + TAU * p, 48, UiKit.GOLD, 4.0)
-	_text(Vector2(s.x * 0.5 - 450, s.y * 0.30), "DRILL — hold still inside the ring", 24, UiKit.GOLD, 900)
+	_text(Vector2(s.x * 0.5 - 450, s.y * 0.30), Data.t("HOW_DRILL", "DRILL — hold still inside the ring"), 24, UiKit.GOLD, 900)
 
 func _draw_toast(info: Dictionary, s: Vector2) -> void:
 	var t: float = info.toast_timer
@@ -164,7 +164,8 @@ func _draw_grade(info: Dictionary, s: Vector2) -> void:
 	draw_circle(center, 120.0 * scale_t, Color(0.03, 0.04, 0.05, 0.35 * a))
 	draw_string(font, center + Vector2(-150, 60), g, HORIZONTAL_ALIGNMENT_CENTER, 300, fs, Color(col.r, col.g, col.b, a))
 	var label: String = {
-		"S": "PERFECT", "A": "CLEAN", "B": "STANDARD", "C": "RUSHED", "F": "BUTCHERED",
+		"S": "GRADE_S", "A": "GRADE_A", "B": "GRADE_B", "C": "GRADE_C", "F": "GRADE_F",
 	}.get(g, "")
+	label = Data.t(label, g)
 	draw_string(font, center + Vector2(-150, 104), label, HORIZONTAL_ALIGNMENT_CENTER, 300, 22,
 		Color(0.95, 0.92, 0.84, a))

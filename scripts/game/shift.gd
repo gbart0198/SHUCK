@@ -380,7 +380,7 @@ func _on_ticket_clicked(card: TicketCard) -> void:
 		_serve_from_plate()
 		return
 	if active_ticket != null and not active_ticket.completed:
-		_toast("Finish the ticket on the pass first.")
+		_toast(Data.t("TOAST_FINISH_TICKET", "Finish the ticket on the pass first."))
 		return
 	if card.ticket.walked_out or card.ticket.completed:
 		return
@@ -424,6 +424,7 @@ func _spawn_from_active() -> void:
 	var luck := 1.0
 	if Game.tier("floor") >= 5:
 		luck += Registry.balance.lamp_pearl_bonus
+	luck += float(Game.session.get("luck", 0.0))
 	var chance := clampf(sp.pearl_chance * luck, 0.0, 1.0)
 	# pearls are rolled HERE, at spawn, and never when the shell opens.
 	sim.setup_pearls(PearlRoller.roll(rng, chance, pier.id))
@@ -464,15 +465,15 @@ func _on_oyster_resolved(oyster: OysterNode, sim: OysterSim) -> void:
 		if boss_mode and oyster == boss_oyster:
 			_finish_boss(true)
 		if sim.grade == "S":
-			_toast("S — perfect. It pays 1.6x.")
+			_toast(Data.t("TOAST_S", "S — perfect. It pays 1.6x."))
 		if active_ticket == null:
-			_toast("On the pass. Take a ticket off the rail.")
+			_toast(Data.t("TOAST_ON_PASS", "On the pass. Take a ticket off the rail."))
 		else:
 			_spawn_from_active()
 	else:
 		Game.session["ruined"] = int(Game.session.get("ruined", 0)) + 1
 		if sim.ruin_reason == "escaped":
-			_toast("The Cursed Oyster escaped and bit someone.")
+			_toast(Data.t("TOAST_CURSED_ESCAPE", "The Cursed Oyster escaped and bit someone."))
 		if active_ticket != null:
 			_spawn_from_active()
 	if is_instance_valid(oyster):
@@ -488,11 +489,13 @@ func _collect_pearls(sim: OysterSim) -> void:
 	var no_pearl := active_ticket != null and active_ticket.modifier != null and active_ticket.modifier.no_pearl
 	if no_pearl:
 		sim.pearls_forfeited = true
-		_toast("No pearl on this order. The house keeps it.")
+		_toast(Data.t("TOAST_NO_PEARL", "No pearl on this order. The house keeps it."))
 		return
 	for p in sim.pearls:
 		pearls_found.append(p)
 		pearls_value += p.value
+		if p.trait_id == "cultured":
+			Game.session["luck"] = float(Game.session.get("luck", 0.0)) + Registry.balance.cultch_luck_bonus
 	Game.add_pearls(sim.pearls)
 	Sfx.play("plink")
 	var p0: Pearl = sim.pearls[0]
@@ -504,10 +507,10 @@ func _collect_pearls(sim: OysterSim) -> void:
 
 func _serve_from_plate() -> void:
 	if plate == null or plate.portions.is_empty():
-		_toast("Nothing plated yet.")
+		_toast(Data.t("TOAST_NOTHING_PLATED", "Nothing plated yet."))
 		return
 	if active_ticket == null or active_ticket.completed or active_ticket.walked_out:
-		_toast("Take a ticket off the rail first.")
+		_toast(Data.t("TOAST_TAKE_TICKET", "Take a ticket off the rail first."))
 		return
 	var portion := plate.take_one()
 	if portion.is_empty():
@@ -560,7 +563,7 @@ func _on_walked_out(card: TicketCard) -> void:
 	card.queue_free()
 	walked_out += 1
 	Game.session["walked_out"] = int(Game.session.get("walked_out", 0)) + 1
-	_toast("Walked out. One star gone.")
+	_toast(Data.t("TOAST_WALKED", "Walked out. One star gone."))
 	Sfx.play("fail")
 
 func _clear_bench() -> void:
@@ -683,6 +686,8 @@ func _apply_chaos(c: ChaosData) -> void:
 			var t := get_tree().create_timer(c.duration)
 			t.timeout.connect(func() -> void: _set_lights(1.0))
 		"wave":
+			if player != null and player.sim != null:
+				player.sim.wet_hands = true
 			for o in oysters.duplicate():
 				if is_instance_valid(o) and not o.held:
 					o.sim.abandon()
@@ -695,7 +700,7 @@ func _apply_chaos(c: ChaosData) -> void:
 				if card.ticket != active_ticket:
 					cards.erase(card)
 					card.queue_free()
-					_toast("A rival van stole a ticket off the rail.")
+					_toast(Data.t("TOAST_RIVAL", "A rival van stole a ticket off the rail."))
 					break
 		"scream":
 			var sid := "cursed_oyster"
@@ -1117,7 +1122,7 @@ func _log_shift_csv(result: Dictionary, seconds: float) -> void:
 
 func _toggle_photo() -> void:
 	if not photo and player != null and player.is_gesturing():
-		_toast("Finish the oyster first.")
+		_toast(Data.t("TOAST_FINISH_OYSTER", "Finish the oyster first."))
 		return
 	photo = not photo
 	photo_freeze = photo

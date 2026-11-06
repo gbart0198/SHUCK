@@ -86,6 +86,16 @@ func _ready() -> void:
 	left.add_child(tide_box)
 	mult_label = UiKit.label("", 17, UiKit.MUTED)
 	left.add_child(mult_label)
+	left.add_child(UiKit.spacer(0, 10))
+	var how := UiKit.panel(Color(0.07, 0.09, 0.10, 0.92))
+	how.custom_minimum_size = Vector2(760, 0)
+	var hv := UiKit.vbox(4)
+	how.add_child(hv)
+	hv.add_child(UiKit.label(Data.t("HOW_TITLE", "THE SHUCK — four gestures"), 20, UiKit.GOLD))
+	for line_key in ["HOW_WEDGE", "HOW_POP", "HOW_SLIDE", "HOW_RESEAT"]:
+		hv.add_child(UiKit.label(Data.t(line_key, ""), 14, UiKit.CREAM))
+	hv.add_child(UiKit.label(Data.t("HOW_LOOP", "Take a ticket, shuck its oysters, click the plate to serve. The ledger pays at the end of the shift."), 13, UiKit.MUTED))
+	left.add_child(how)
 
 	right.add_child(UiKit.label(Data.t("LOBBY_ACTIONS", "Service"), 22, UiKit.GOLD))
 	start_btn = UiKit.button(Data.t("BTN_START", "Start shift"), _on_start, 24, true)

@@ -157,6 +157,36 @@ func run(main: Node) -> int:
 	Game.load_game()
 	ck(Game.tier("knife") == 2, "upgrade survives a reload")
 	ck(Game.money() == 380, "money survives a reload")
+	# ---- photo mode, debug panel, analytics
+	main.show_lobby()
+	await get_tree().process_frame
+	main._on_start(1, [], false, false)
+	await get_tree().process_frame
+	var fs = main.shift
+	fs._toggle_photo()
+	ck(fs.photo and fs.player.photo_mode, "photo mode freezes the shift and frees the camera")
+	fs._toggle_photo()
+	ck(not fs.photo and not fs.player.photo_mode, "photo mode exits")
+	fs._toggle_debug()
+	ck(fs.debug_panel != null, "debug balance panel opens (F3)")
+	fs._toggle_debug()
+	ck(fs.debug_panel == null, "debug panel closes")
+	ck(FileAccess.file_exists("user://shift_log.csv"), "shift analytics CSV written")
+	fs._end_shift()
+	await get_tree().process_frame
+	# ---- credits on pier 6
+	Game.state["pier"] = 6
+	main.show_lobby()
+	await get_tree().process_frame
+	main._on_start(6, [], false, false)
+	await get_tree().process_frame
+	var cs = main.shift
+	cs.earnings = cs.quota
+	cs.tips = 0
+	cs._end_shift()
+	await get_tree().process_frame
+	ck(Game.state.get("credits", false), "pier 6 quota sets credits")
+	ck(cs.ledger != null, "credits ledger shown")
 	# ---- gadgets
 	main.show_lobby()
 	await get_tree().process_frame

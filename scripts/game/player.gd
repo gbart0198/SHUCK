@@ -257,7 +257,7 @@ func pick_up(oyster: OysterNode) -> void:
 	var gloves := Game.tier("gloves")
 	if oyster.species.requires_gloves_tier > 0 and gloves < oyster.species.requires_gloves_tier:
 		rash = true
-		_toast("Barnacle Rash — the spines bite through these gloves")
+		_toast(Data.t("TOAST_RASH", "Barnacle Rash — the spines bite through these gloves"))
 	if gloves >= 2:
 		sim.wet_hands = false
 	if gloves >= 3 and sim.nicked:
@@ -376,7 +376,7 @@ func _finish_wedge() -> void:
 	var r := sim.wedge_release()
 	match r:
 		OysterSim.Wedge.NONE:
-			_toast("Nothing. Hold the knife in the hinge and try again.")
+			_toast(Data.t("TOAST_NOTHING", "Nothing. Hold the knife in the hinge and try again."))
 			Sfx.play("click", -12.0)
 		OysterSim.Wedge.SLIP:
 			Sfx.play("crack")
@@ -384,9 +384,9 @@ func _finish_wedge() -> void:
 				nicked = true
 				nicked_timer = 12.0
 				_note_nick()
-				_toast("Nicked. The shell is fine. Your hand is not.")
+				_toast(Data.t("TOAST_NICKED", "Nicked. The shell is fine. Your hand is not."))
 			else:
-				_toast("Slip. No damage this time.")
+				_toast(Data.t("TOAST_SLIP", "Slip. No damage this time."))
 		_:
 			Sfx.play("click", -8.0, 1.2)
 			if sim.state == OysterSim.State.SEATED:
@@ -409,7 +409,7 @@ func _process_pop(dt: float) -> void:
 		return
 	sim.pop_tick(dt)
 	if sim.pop_result == OysterSim.Pop.FIGHTBACK:
-		_toast("It clamped shut. Wedge it again.")
+		_toast(Data.t("TOAST_CLAMP", "It clamped shut. Wedge it again."))
 		Sfx.play("thud", -10.0)
 		_set_phase(G.WEDGE)
 		return
@@ -422,7 +422,7 @@ func _process_pop(dt: float) -> void:
 				Sfx.play("click")
 			OysterSim.Pop.CRACKED:
 				Sfx.play("crack")
-				_toast("Cracked. Shards on the bench.")
+				_toast(Data.t("TOAST_CRACKED", "Cracked. Shards on the bench."))
 		if sim.state == OysterSim.State.OPEN:
 			hands.show_oyster(sim.species, true, sim.pearls.size() > 0)
 			sim.slide_begin()
@@ -450,7 +450,7 @@ func _faint() -> void:
 	Game.session["faints"] = int(Game.session.get("faints", 0)) + 1
 	Game.bump_stat("faints")
 	if held_oyster != null:
-		_toast("You faint. Everything hits the floor.")
+		_toast(Data.t("TOAST_FAINT", "You faint. Everything hits the floor."))
 		release_gesture()
 	head.position.y = 0.55
 	head.rotation.z = 0.5
@@ -463,7 +463,7 @@ func _faint_process(dt: float) -> void:
 		fainted = false
 		head.position.y = 1.62
 		head.rotation.z = 0.0
-		_toast("You come to. The ticket is still running.")
+		_toast(Data.t("TOAST_WAKE", "You come to. The ticket is still running."))
 
 func _start_slide() -> void:
 	var vs := get_viewport().get_visible_rect().size
@@ -527,12 +527,12 @@ func _process_slide(dt: float) -> void:
 	sim.slide_sample(offline + wander, speed, dt, tol)
 	if sim.shattered:
 		Sfx.play("crack")
-		_toast("Shell shattered. Butchered.")
+		_toast(Data.t("TOAST_SHATTER", "Shell shattered. Butchered."))
 		_resolve()
 		return
 	if sim.stabbed:
 		Sfx.play("crack", -4.0, 0.8)
-		_toast("You stabbed the meat. Juice everywhere.")
+		_toast(Data.t("TOAST_STAB", "You stabbed the meat. Juice everywhere."))
 		sim.slide_done = true
 		_set_phase(G.RESEAT)
 		return
@@ -569,7 +569,7 @@ func _process_reseat(dt: float) -> void:
 				Sfx.play("click", -4.0, 0.8)
 			else:
 				Sfx.play("thud")
-				_toast("Ruined. It is on the floor. That sound was the sound.")
+				_toast(Data.t("TOAST_RUINED", "Ruined. It is on the floor. That sound was the sound."))
 			_resolve()
 
 func plate_screen_rect() -> Rect2:
