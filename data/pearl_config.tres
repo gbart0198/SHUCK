@@ -13,27 +13,27 @@ named_pearls = Array[Dictionary]([{
 "flavour": "Found in a shell that had no business opening.",
 "id": "jetty_tear",
 "name": "The Jetty Tear",
-"pier": 3
+"pier": 1
 }, {
 "flavour": "It watches the cranes. The cranes watch back.",
 "id": "harbor_eye",
 "name": "The Harbor Eye",
-"pier": 4
+"pier": 2
 }, {
 "flavour": "Still warm. Nobody asks why.",
 "id": "raft_heart",
 "name": "Raft City Heart",
-"pier": 5
+"pier": 3
 }, {
 "flavour": "Breathes once when you look away.",
 "id": "reef_lung",
 "name": "The Reef Lung",
-"pier": 6
+"pier": 4
 }, {
 "flavour": "Shed for a ship that never came home.",
 "id": "lamp_tear",
 "name": "The Lamp's Tear",
-"pier": 6
+"pier": 5
 }, {
 "flavour": "Always rolls seven.",
 "id": "trench_die",

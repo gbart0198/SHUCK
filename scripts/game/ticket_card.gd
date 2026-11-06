@@ -21,12 +21,12 @@ func setup(t: TicketSim, p_slot: int) -> void:
 	paper = MeshFactory.box(Vector3(0.34, 0.24, 0.008), Color(0.95, 0.92, 0.83), Vector3(0, 0, 0.01))
 	add_child(paper)
 	label = Label3D.new()
-	label.font_size = 30
-	label.pixel_size = 0.0016
+	label.font_size = 26
+	label.pixel_size = 0.0014
 	label.modulate = Color(0.14, 0.12, 0.10)
 	label.outline_size = 0
 	label.position = Vector3(0, 0.02, 0.02)
-	label.width = 260
+	label.width = 230
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD
 	label.text = ""
 	add_child(label)

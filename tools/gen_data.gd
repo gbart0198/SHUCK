@@ -52,11 +52,11 @@ func _gen_pearls() -> void:
 	])
 	c.colour_mults = PackedFloat32Array([1.0, 1.1, 1.3, 1.5, 2.0, 2.4, 3.0, 3.5])
 	c.named_pearls = [
-		{"id": "jetty_tear", "name": "The Jetty Tear", "pier": 3, "flavour": "Found in a shell that had no business opening."},
-		{"id": "harbor_eye", "name": "The Harbor Eye", "pier": 4, "flavour": "It watches the cranes. The cranes watch back."},
-		{"id": "raft_heart", "name": "Raft City Heart", "pier": 5, "flavour": "Still warm. Nobody asks why."},
-		{"id": "reef_lung", "name": "The Reef Lung", "pier": 6, "flavour": "Breathes once when you look away."},
-		{"id": "lamp_tear", "name": "The Lamp's Tear", "pier": 6, "flavour": "Shed for a ship that never came home."},
+		{"id": "jetty_tear", "name": "The Jetty Tear", "pier": 1, "flavour": "Found in a shell that had no business opening."},
+		{"id": "harbor_eye", "name": "The Harbor Eye", "pier": 2, "flavour": "It watches the cranes. The cranes watch back."},
+		{"id": "raft_heart", "name": "Raft City Heart", "pier": 3, "flavour": "Still warm. Nobody asks why."},
+		{"id": "reef_lung", "name": "The Reef Lung", "pier": 4, "flavour": "Breathes once when you look away."},
+		{"id": "lamp_tear", "name": "The Lamp's Tear", "pier": 5, "flavour": "Shed for a ship that never came home."},
 		{"id": "trench_die", "name": "The Trench Die", "pier": 6, "flavour": "Always rolls seven."},
 		{"id": "kings_thumb", "name": "The King's Thumb", "pier": 6, "flavour": "He wants it back."},
 		{"id": "tidewrought", "name": "The Tidewrought", "pier": 6, "flavour": "The tide made it. The tide wants it."},

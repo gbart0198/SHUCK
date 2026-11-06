@@ -66,6 +66,9 @@ var nick_times: Array[float] = []
 var bob_t := 0.0
 var last_camera_rot := Vector2.ZERO
 var move_amount := 0.0
+var flashlight: SpotLight3D
+var pier_tilt := 0.0
+var sway_t := 0.0
 
 func _ready() -> void:
 	add_to_group("player")
@@ -95,6 +98,15 @@ func _ready() -> void:
 	ray.collide_with_areas = true
 	ray.collide_with_bodies = false
 	main_camera.add_child(ray)
+
+	flashlight = SpotLight3D.new()
+	flashlight.light_color = Color(1.0, 0.95, 0.82)
+	flashlight.light_energy = 4.0
+	flashlight.spot_range = 16.0
+	flashlight.spot_angle = 30.0
+	flashlight.position = Vector3(0.12, -0.12, 0.0)
+	flashlight.visible = false
+	main_camera.add_child(flashlight)
 
 	hands = HandsView.new()
 	hands.name = "Hands"
@@ -139,6 +151,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			pitch = clampf(pitch, -1.45, 1.45)
 			rotation.y = yaw
 			head.rotation.x = pitch
+	elif event.is_action_pressed("flashlight"):
+		if flashlight != null:
+			flashlight.visible = not flashlight.visible
+			Sfx.play("click", -10.0)
 	elif event.is_action_pressed("interact"):
 		lmb_pressed = true
 	elif event.is_action_released("interact"):
@@ -195,6 +211,9 @@ func _physics_process(dt: float) -> void:
 		head.position.y = 1.62 + sin(bob_t) * 0.012 * move_amount
 	else:
 		head.position.y = lerpf(head.position.y, 1.62, dt * 8.0)
+	sway_t += dt
+	if pier_tilt > 0.0 and not fainted:
+		head.rotation.z = sin(sway_t * 0.8) * pier_tilt * 3.0
 
 func _update_hands(dt: float) -> void:
 	var delta_rot := Vector2(rotation.y - last_camera_rot.x, head.rotation.x - last_camera_rot.y)

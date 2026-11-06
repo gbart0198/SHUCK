@@ -189,6 +189,38 @@ func run(main: Node) -> int:
 	bs._end_shift()
 	await get_tree().process_frame
 	ck(bs.ledger != null, "boss ledger shown")
+	# ---- Tides and Daily Tide
+	main.show_lobby()
+	await get_tree().process_frame
+	main._on_start(2, ["crowded", "hungry"], false, false)
+	await get_tree().process_frame
+	var tide_shift = main.shift
+	ck(tide_shift.quota == 450, "Hungry raises quota 300 -> 450")
+	ck(tide_shift.tickets_total == 15, "Crowded raises tickets 10 -> 15")
+	ck(near_tol(tide_shift._tide_product("payout_mult"), 2.25), "Crowded x1.5 * Hungry x1.5 payout")
+	tide_shift._end_shift()
+	await get_tree().process_frame
+	main._on_start(1, ["neap"], false, true)
+	await get_tree().process_frame
+	ck(main.shift.daily, "Daily Tide shift is marked daily")
+	main.shift._end_shift()
+	await get_tree().process_frame
+	# ---- every pier builds and its species pool resolves
+	for pid in range(1, 7):
+		main.show_lobby()
+		await get_tree().process_frame
+		main._on_start(pid, [], false, false)
+		await get_tree().process_frame
+		var ts = main.shift
+		var ok_pier: bool = ts != null and ts.pier.id == pid
+		var ok_species := true
+		for sid in ts.pier.species:
+			if Registry.get_species(str(sid)) == null:
+				ok_species = false
+		ck(ok_pier and ok_species, "pier %d builds with its species pool" % pid)
+		ck(ts.quota >= Registry.get_pier(pid).quota, "pier %d quota scales with Tides" % pid)
+		ts._end_shift()
+		await get_tree().process_frame
 	# relic collection
 	main.show_lobby()
 	await get_tree().process_frame

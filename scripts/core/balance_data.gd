@@ -59,6 +59,8 @@ class_name BalanceData
 @export var display_pearl_tip_bonus := 0.02
 @export var display_pearl_tip_cap := 0.20
 @export var aquarium_display_mult := 2.0
+@export var display_pearl_cap := 12
+@export var relic_tip_bonus := 0.01
 @export var rank_tip_bonus := 0.02
 @export var combo_max := 2.0
 @export var combo_step := 0.10
@@ -74,6 +76,10 @@ class_name BalanceData
 @export var cultch_luck_bonus := 0.01
 @export var lamp_pearl_bonus := 0.08
 @export var automation_pearl_penalty := 0.5
+@export var cursed_named_chance := 0.03
+@export var named_pearl_boss_value := 2500
+@export var named_pearl_cursed_value := 2500
+@export var boss_pay_base := 200.0
 
 @export_group("Bench freshness (seconds per tier)")
 @export var bench_freshness := PackedFloat32Array([90.0, 120.0, 600.0, 600.0, 600.0, 600.0])

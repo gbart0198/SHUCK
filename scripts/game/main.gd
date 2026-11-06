@@ -31,6 +31,14 @@ func _ready() -> void:
 		var code: int = await runner.run(self)
 		get_tree().quit(code)
 		return
+	var panel := ""
+	for a in args:
+		if a.begins_with("--panel="):
+			panel = a.split("=", true, 1)[1]
+	if panel == "shop":
+		open_shop()
+	elif panel == "log":
+		open_log()
 	var demo_phase := ""
 	for a in args:
 		if a.begins_with("--gesture-demo="):

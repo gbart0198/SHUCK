@@ -69,6 +69,7 @@ var otto_timer := 0.0
 var slick_timer := 0.0
 var late_serve := false
 var board_label: Label3D
+var debug_panel: Control
 var case_root: Node3D
 var dog: Node3D
 
@@ -101,7 +102,7 @@ func _ready() -> void:
 		_start_boss()
 	else:
 		next_spawn = 2.0
-	_subtitle(Data.t(pier.tagline_key, ""))
+	_subtitle(Data.t(pier.tagline_key, "") + "  ·  " + Data.t(pier.hazard_key, ""), 6.0)
 
 func _tide_product(prop: String) -> float:
 	var v := 1.0
@@ -128,7 +129,7 @@ func _build_world() -> void:
 
 func _on_relic(id: String) -> void:
 	if Game.add_relic(id):
-		_toast("Relic found: %s  (+1% tips, kept for good)" % id.replace("_", " "))
+		_toast("Relic found: %s  (+1%% tips, kept for good)" % id.replace("_", " "))
 		Sfx.play("coin")
 
 func _build_station() -> void:
@@ -167,18 +168,18 @@ func _build_pearl_case() -> void:
 	if not refs.has("counter_top"):
 		return
 	case_root = Node3D.new()
-	case_root.position = Vector3(3.05, 1.18, -1.35)
-	case_root.rotation.y = -0.35
+	case_root.position = Vector3(2.55, 1.18, -1.10)
+	case_root.rotation.y = -0.55
 	add_child(case_root)
-	case_root.add_child(MeshFactory.box(Vector3(0.82, 0.06, 0.42), pier.wood_color.lightened(0.1), Vector3(0, -0.06, 0)))
-	var glass := MeshFactory.box(Vector3(0.80, 0.34, 0.40), Color(0.7, 0.85, 0.9, 0.18))
+	case_root.add_child(MeshFactory.box(Vector3(0.72, 0.06, 0.38), pier.wood_color.lightened(0.1), Vector3(0, -0.06, 0)))
+	var glass := MeshFactory.box(Vector3(0.70, 0.34, 0.36), Color(0.7, 0.85, 0.9, 0.18))
 	var gm := StandardMaterial3D.new()
 	gm.albedo_color = Color(0.7, 0.85, 0.9, 0.16)
 	gm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	gm.roughness = 0.1
 	glass.material_override = gm
 	case_root.add_child(glass)
-	case_root.add_child(MeshFactory.box(Vector3(0.82, 0.02, 0.42), pier.accent_color, Vector3(0, 0.18, 0)))
+	case_root.add_child(MeshFactory.box(Vector3(0.72, 0.02, 0.38), pier.accent_color, Vector3(0, 0.18, 0)))
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.9, 0.7)
 	light.light_energy = 0.8
@@ -194,7 +195,7 @@ func _build_pearl_case() -> void:
 		var p := MeshFactory.pearl(colour, radius)
 		var col := i % 4
 		var row := int(i / 4)
-		p.position = Vector3(-0.27 + col * 0.18, 0.02, -0.10 + row * 0.11)
+		p.position = Vector3(-0.24 + col * 0.16, 0.02, -0.09 + row * 0.10)
 		case_root.add_child(p)
 	var label := Label3D.new()
 	label.text = "PEARL CASE  %d/12" % shown
@@ -209,7 +210,7 @@ func _build_board() -> void:
 		return
 	board_label = Label3D.new()
 	board_label.font_size = 40
-	board_label.pixel_size = 0.0026
+	board_label.pixel_size = 0.0034
 	board_label.position = refs.board_pos + Vector3(0, 0.02, 0.05)
 	board_label.modulate = Color(0.92, 0.9, 0.82)
 	board_label.outline_size = 0
@@ -245,14 +246,9 @@ func _build_player() -> void:
 	player.oyster_resolved.connect(_on_oyster_resolved)
 	player.focus_changed.connect(_on_focus)
 	player.toast.connect(_toast)
+	player.pier_tilt = pier.tilt
 	if pier.darkness > 0.3:
-		var fl := SpotLight3D.new()
-		fl.light_color = Color(1.0, 0.95, 0.8)
-		fl.light_energy = 3.0
-		fl.spot_range = 14.0
-		fl.spot_angle = 32.0
-		fl.position = Vector3(0.1, -0.1, 0.0)
-		player.main_camera.add_child(fl)
+		player.flashlight.visible = true
 	# knife skin from cosmetics
 	var skin := Game.equipped("knife")
 	if skin != "":
@@ -278,6 +274,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("photo") and not ended:
 		_toggle_photo()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("debug"):
+		_toggle_debug()
 		get_viewport().set_input_as_handled()
 
 # ------------------------------------------------------------------ tickets
@@ -331,9 +330,16 @@ func _spawn_ticket() -> void:
 	ticket_id += 1
 	tickets_spawned += 1
 	var card := TicketCard.new()
-	card.setup(t, cards.size())
-	var idx := cards.size()
-	var x := -1.05 + 1.05 * idx
+	var used := []
+	for c in cards:
+		used.append(c.slot)
+	var free := 0
+	for i in 4:
+		if not used.has(i):
+			free = i
+			break
+	card.setup(t, free)
+	var x := -1.35 + 0.90 * free
 	card.position = Vector3(x, 1.48, -1.52)
 	card.clicked.connect(_on_ticket_clicked)
 	rail_root.add_child(card)
@@ -355,6 +361,7 @@ func _on_ticket_clicked(card: TicketCard) -> void:
 	active_ticket = card.ticket
 	active_card = card
 	active_ticket.accept()
+	player.force_no_pop = card.ticket.modifier != null and card.ticket.modifier.no_pop
 	card.set_active(true)
 	for c in cards:
 		if c != card:
@@ -398,9 +405,9 @@ func _spawn_from_active() -> void:
 		if pearl.trait_id == "tidewrought" and pearl.named == "":
 			pearl.named = "tidewrought"
 	# Cursed Oysters can also cough up one of the pier's named pearls.
-	if sp.id == "cursed_oyster" and not sim.pearls.is_empty() and rng.randf() < 0.03:
+	if sp.id == "cursed_oyster" and not sim.pearls.is_empty() and rng.randf() < Registry.balance.cursed_named_chance:
 		sim.pearls[0].named = _next_named_pearl()
-		sim.pearls[0].value = 2500
+		sim.pearls[0].value = Registry.balance.named_pearl_cursed_value
 	var node := OysterNode.new()
 	node.setup(sp, sim, free)
 	node.position = bench_positions[free]
@@ -511,6 +518,7 @@ func _finish_active() -> void:
 		card.queue_free()
 	active_ticket = null
 	active_card = null
+	player.force_no_pop = false
 	for c in cards:
 		c.set_active(false)
 	Sfx.play("money")
@@ -519,6 +527,7 @@ func _on_walked_out(card: TicketCard) -> void:
 	if card.ticket == active_ticket:
 		active_ticket = null
 		active_card = null
+		player.force_no_pop = false
 		_clear_bench()
 	if card in cards:
 		cards.erase(card)
@@ -582,10 +591,7 @@ func _finish_boss(won: bool) -> void:
 		np.trait_id = "common"
 		np.pier = pier.id
 		np.named = named_id
-		np.value = 1500
-		for d in Registry.pearl_config.named_pearls:
-			if str(d.get("id", "")) == named_id:
-				np.value = 2500
+		np.value = Registry.balance.named_pearl_boss_value
 		pearls_found.append(np)
 		pearls_value += np.value
 		Game.add_pearls([np])
@@ -593,7 +599,7 @@ func _finish_boss(won: bool) -> void:
 		if not bosses.has(pier.id):
 			bosses.append(pier.id)
 		Game.state["bosses"] = bosses
-		earnings += roundi(200.0 * pier.price_scale * _tide_product("payout_mult"))
+		earnings += roundi(Registry.balance.boss_pay_base * pier.price_scale * _tide_product("payout_mult"))
 	else:
 		_subtitle(Data.t("BOSS_LOSE", "It got away. The ledger will remember."), 4.0)
 		Sfx.play("fail")
@@ -820,6 +826,7 @@ func _end_shift() -> void:
 		if pier.id == 6:
 			Game.state["credits"] = true
 	var badges := _award_badges(quota_met)
+	_log_shift_csv({"pearls": pearls_found.size(), "total": total, "walked_out": walked_out, "stars": stars}, elapsed)
 	var result := {
 		"pier": pier.id,
 		"pier_name": Data.t(pier.name_key, "Pier"),
@@ -985,6 +992,74 @@ func _close_pause() -> void:
 		pause_ui = null
 	if not ended:
 		player.set_locked(false)
+
+func _toggle_debug() -> void:
+	if debug_panel != null:
+		debug_panel.get_parent().queue_free()
+		debug_panel = null
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 40
+	add_child(layer)
+	debug_panel = Control.new()
+	debug_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(debug_panel)
+	var panel := UiKit.panel(Color(0.03, 0.05, 0.06, 0.94), UiKit.ORANGE)
+	panel.position = Vector2(40, 140)
+	panel.custom_minimum_size = Vector2(430, 0)
+	debug_panel.add_child(panel)
+	var v := UiKit.vbox(4)
+	panel.add_child(v)
+	v.add_child(UiKit.label("DEBUG — live balance (F3)", 20, UiKit.GOLD))
+	var fields := [
+		["wedge_duration", 0.2, 1.5, 0.05],
+		["wedge_clean_start", 0.2, 0.9, 0.01],
+		["wedge_clean_end", 0.3, 1.2, 0.01],
+		["pop_duration", 0.2, 1.2, 0.05],
+		["pop_perfect_max", 0.05, 0.9, 0.01],
+		["slide_offline_limit", 10.0, 200.0, 1.0],
+		["patience_base", 8.0, 60.0, 1.0],
+		["pearl_base_value", 10.0, 200.0, 1.0],
+	]
+	for f in fields:
+		var row := UiKit.hbox(6)
+		var lab := UiKit.label(str(f[0]), 13, UiKit.MUTED)
+		lab.custom_minimum_size = Vector2(170, 0)
+		row.add_child(lab)
+		var slider := HSlider.new()
+		slider.min_value = f[1]
+		slider.max_value = f[2]
+		slider.step = f[3]
+		slider.value = float(Registry.balance.get(f[0]))
+		slider.custom_minimum_size = Vector2(170, 0)
+		var value_label := UiKit.label("%.2f" % slider.value, 13, UiKit.CREAM)
+		slider.value_changed.connect(func(val: float) -> void:
+			Registry.balance.set(f[0], val)
+			value_label.text = "%.2f" % val)
+		row.add_child(slider)
+		row.add_child(value_label)
+		v.add_child(row)
+	v.add_child(UiKit.label("Shift log: user://shift_log.csv", 12, UiKit.MUTED))
+
+func _log_shift_csv(result: Dictionary, seconds: float) -> void:
+	var path := "user://shift_log.csv"
+	var fresh := not FileAccess.file_exists(path)
+	var f := FileAccess.open(path, FileAccess.READ_WRITE if not fresh else FileAccess.WRITE)
+	if f == null:
+		return
+	if not fresh:
+		f.seek_end()
+	else:
+		f.store_line("time,pier,tides,minutes,grades_S,grades_A,grades_B,grades_C,grades_F,oysters,oysters_per_min,pearls,money,walked_out,faints,ruined,stars")
+	f.store_line("%s,%d,%s,%.2f,%d,%d,%d,%d,%d,%d,%.2f,%d,%d,%d,%d,%d,%d" % [
+		Time.get_datetime_string_from_system(), pier.id, ",".join(tide_ids), seconds / 60.0,
+		int(Game.session.get("grades", {}).get("S", 0)), int(Game.session.get("grades", {}).get("A", 0)),
+		int(Game.session.get("grades", {}).get("B", 0)), int(Game.session.get("grades", {}).get("C", 0)),
+		int(Game.session.get("grades", {}).get("F", 0)), int(Game.session.get("oysters", 0)),
+		float(Game.session.get("oysters", 0)) / maxf(0.01, seconds / 60.0),
+		int(result.get("pearls", 0)), int(result.get("total", 0)), int(result.get("walked_out", 0)),
+		int(Game.session.get("faints", 0)), int(Game.session.get("ruined", 0)), int(result.get("stars", 0))])
+	f.close()
 
 func _toggle_photo() -> void:
 	if not photo and player != null and player.is_gesturing():

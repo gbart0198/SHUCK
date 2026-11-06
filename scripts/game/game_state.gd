@@ -97,14 +97,14 @@ func tip_bonus() -> float:
 	var t := 0.0
 	if tier("floor") >= 2:
 		t += b.neon_tip_bonus
-	t += float(mini(displayed_pearls(), 12)) * b.display_pearl_tip_bonus
+	t += float(mini(displayed_pearls(), b.display_pearl_cap)) * b.display_pearl_tip_bonus
 	t = minf(t, b.display_pearl_tip_cap if tier("floor") < 6 else b.display_pearl_tip_cap * b.aquarium_display_mult)
 	t += float(int(state.get("rank", 0))) * b.rank_tip_bonus
-	t += float(state.get("relics", []).size()) * 0.01
+	t += float(state.get("relics", []).size()) * b.relic_tip_bonus
 	return t
 
 func displayed_pearls() -> int:
-	return mini(12, state.get("pearls", []).size())
+	return mini(Registry.balance.display_pearl_cap if Registry.balance != null else 12, state.get("pearls", []).size())
 
 func add_pearls(pearls: Array) -> int:
 	var added := 0

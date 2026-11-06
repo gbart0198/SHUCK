@@ -79,9 +79,9 @@ func _draw_pop(info: Dictionary, s: Vector2) -> void:
 	# closing sweep line
 	if info.pop_active:
 		draw_line(center, center + Vector2(0, -maxf(rr, 1.0)), Color(1, 1, 1, 0.25), 2.0)
+	draw_rect(Rect2(center + Vector2(-R - 40, R + 22), Vector2(R * 2.0 + 80, 62)), Color(0.03, 0.04, 0.05, 0.62))
 	_text(center + Vector2(-R, R + 52), "CLICK when the ring reaches the dot", 22, UiKit.GOLD, R * 2.0)
-	_text(center + Vector2(-R, R + 80), "inner 30% = clean pop  •  30–60% = normal  •  outside = cracked", 15, UiKit.MUTED, R * 2.0)
-	_text(center + Vector2(-R, -R - 24), "POP", 26, UiKit.CREAM, R * 2.0)
+	_text(center + Vector2(-R, R + 78), "inner 30% = clean pop  •  30–60% = normal  •  outside = cracked", 15, UiKit.MUTED, R * 2.0)
 
 func _draw_slide(info: Dictionary, s: Vector2) -> void:
 	var pts: PackedVector2Array = info.slide_seam
