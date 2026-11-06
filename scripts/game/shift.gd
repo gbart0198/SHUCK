@@ -98,6 +98,7 @@ func _ready() -> void:
 	_build_station()
 	_build_player()
 	_build_ui()
+	_spawn_crew()
 	if boss_mode:
 		_start_boss()
 	else:
@@ -256,6 +257,27 @@ func _build_player() -> void:
 		if c != null:
 			player.hands.refresh_knife(c.color)
 
+func _spawn_crew() -> void:
+	if Net.player_count() <= 1:
+		return
+	var peers: Array = multiplayer.get_peers()
+	for i in peers.size():
+		var avatar := Node3D.new()
+		avatar.position = Vector3(2.3 - i * 0.55, 0.0, 0.9 + i * 0.15)
+		add_child(avatar)
+		avatar.add_child(MeshFactory.box(Vector3(0.42, 1.1, 0.24), Color(0.3, 0.42, 0.5), Vector3(0, 0.75, 0)))
+		avatar.add_child(MeshFactory.sphere(0.16, Color(0.8, 0.66, 0.55), Vector3(0, 1.48, 0)))
+		avatar.add_child(MeshFactory.box(Vector3(0.12, 0.5, 0.12), Color(0.25, 0.35, 0.42), Vector3(-0.12, 0.25, 0)))
+		avatar.add_child(MeshFactory.box(Vector3(0.12, 0.5, 0.12), Color(0.25, 0.35, 0.42), Vector3(0.12, 0.25, 0)))
+		var label := Label3D.new()
+		label.text = "CREW %d" % int(peers[i])
+		label.font_size = 32
+		label.pixel_size = 0.002
+		label.position = Vector3(0, 1.8, 0)
+		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		avatar.add_child(label)
+	_subtitle(Data.t("NET_CREW", "Crew connected. This build syncs the shift seed and shows crew avatars; live co-op verbs are M4 work in progress."), 7.0)
+
 func _build_ui() -> void:
 	var hud_layer := CanvasLayer.new()
 	hud_layer.layer = 5
@@ -278,6 +300,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("debug"):
 		_toggle_debug()
 		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("gadget_1"):
+		_use_gadget("prybar")
+	elif event.is_action_pressed("gadget_2"):
+		_use_gadget("pager")
 
 # ------------------------------------------------------------------ tickets
 func _process(dt: float) -> void:
@@ -993,6 +1019,34 @@ func _close_pause() -> void:
 	if not ended:
 		player.set_locked(false)
 
+func _use_gadget(id: String) -> void:
+	var gadgets: Dictionary = Game.state.get("gadgets", {})
+	var count := int(gadgets.get(id, 0))
+	if count <= 0:
+		_toast(Data.t("GADGET_NONE", "You are not carrying that."))
+		return
+	if id == "prybar":
+		player.prybar_next = true
+		gadgets[id] = count - 1
+		Game.state["gadgets"] = gadgets
+		_toast(Data.t("GADGET_PRYBAR_USED", "Pry Bar ready: the next wedge is free."))
+		Sfx.play("click")
+	elif id == "pager":
+		if active_ticket == null or active_card == null:
+			_toast(Data.t("GADGET_PAGER_EMPTY", "No ticket on the pass to delete."))
+			return
+		var card := active_card
+		cards.erase(card)
+		card.queue_free()
+		active_ticket = null
+		active_card = null
+		player.force_no_pop = false
+		_clear_bench()
+		gadgets[id] = count - 1
+		Game.state["gadgets"] = gadgets
+		_toast(Data.t("GADGET_PAGER_USED", "Pager: the ticket is gone. No penalty."))
+		Sfx.play("beep")
+
 func _toggle_debug() -> void:
 	if debug_panel != null:
 		debug_panel.get_parent().queue_free()
@@ -1069,7 +1123,8 @@ func _toggle_photo() -> void:
 	photo_freeze = photo
 	hud.hide_ui = photo
 	overlay.visible = not photo
-	player.set_locked(photo)
+	player.photo_mode = photo
+	player.set_locked(false)
 	if photo:
 		_subtitle(Data.t("PHOTO_ON", "PHOTO MODE — P to return"), 30.0)
 	else:

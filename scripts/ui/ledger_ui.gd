@@ -14,7 +14,6 @@ func setup(r: Dictionary) -> void:
 	font = ThemeDB.fallback_font
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	size = get_viewport_rect().size
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.03, 0.04, 0.86)
 	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -71,6 +70,10 @@ func setup(r: Dictionary) -> void:
 		var c := UiKit.title(Data.t("LEDGER_CREDITS", "CREDITS"), 34)
 		c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		v.add_child(c)
+		var line := UiKit.label(Data.t("LEDGER_CREDITS_SUB", "SHUCK — a friendslop oyster bar. Thanks for playing. The Franchise is open: buy tiers 5–6."), 14, UiKit.CREAM)
+		line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD
+		v.add_child(line)
 	v.add_child(_rule())
 	var buttons := UiKit.hbox(10)
 	var shop := UiKit.button(Data.t("BTN_SHOP", "Shop"), func() -> void: shop_pressed.emit(), 20, true)

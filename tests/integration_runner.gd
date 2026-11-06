@@ -157,6 +157,30 @@ func run(main: Node) -> int:
 	Game.load_game()
 	ck(Game.tier("knife") == 2, "upgrade survives a reload")
 	ck(Game.money() == 380, "money survives a reload")
+	# ---- gadgets
+	main.show_lobby()
+	await get_tree().process_frame
+	main._on_start(1, [], false, false)
+	await get_tree().process_frame
+	var gs = main.shift
+	Game.state["gadgets"]["prybar"] = 1
+	gs._spawn_ticket()
+	gs._on_ticket_clicked(gs.cards[0])
+	gs._spawn_from_active()
+	var go = gs.oysters[0]
+	gs._use_gadget("prybar")
+	ck(gs.player.prybar_next, "Pry Bar arms")
+	gs.player.pick_up(go)
+	ck(gs.player.gesture_phase == Player.G.POP and go.sim.state == OysterSim.State.SEATED,
+		"Pry Bar skips the wedge")
+	ck(int(Game.state["gadgets"]["prybar"]) == 0, "Pry Bar consumed")
+	gs.player.release_gesture()
+	Game.state["gadgets"]["pager"] = 1
+	gs._use_gadget("pager")
+	ck(gs.active_ticket == null and gs.walked_out == 0, "Pager deletes a ticket with no penalty")
+	ck(int(Game.state["gadgets"]["pager"]) == 0, "Pager consumed")
+	gs._end_shift()
+	await get_tree().process_frame
 	# ---- boss shift on pier 3
 	main.show_lobby()
 	await get_tree().process_frame
@@ -189,6 +213,12 @@ func run(main: Node) -> int:
 	bs._end_shift()
 	await get_tree().process_frame
 	ck(bs.ledger != null, "boss ledger shown")
+	# ---- Next shift restarts on the highest unlocked pier
+	main.start_again()
+	await get_tree().process_frame
+	ck(main.shift != null and not main.shift.ended, "Next shift starts a fresh shift")
+	main.shift._end_shift()
+	await get_tree().process_frame
 	# ---- Tides and Daily Tide
 	main.show_lobby()
 	await get_tree().process_frame

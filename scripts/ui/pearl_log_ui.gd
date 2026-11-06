@@ -5,7 +5,6 @@ signal closed
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	size = get_viewport_rect().size
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var dim := ColorRect.new()
 	dim.color = Color(0.02, 0.03, 0.04, 0.99)

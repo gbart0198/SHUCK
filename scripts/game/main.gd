@@ -11,6 +11,8 @@ var last_result: Dictionary = {}
 var ui_layer: CanvasLayer
 
 func _ready() -> void:
+	Net.shift_received.connect(func(pier: int, tides: Array, seed_value: int, boss: bool) -> void:
+		_start(pier, tides, boss, false, seed_value))
 	var args := OS.get_cmdline_user_args()
 	var shot_path := ""
 	for a in args:
@@ -126,11 +128,16 @@ func show_lobby() -> void:
 	lobby.quit_requested.connect(func() -> void: get_tree().quit())
 
 func _on_start(pier_id: int, tides: Array, boss: bool, daily: bool) -> void:
+	_start(pier_id, tides, boss, daily, -1)
+
+func _start(pier_id: int, tides: Array, boss: bool, daily: bool, seed_override := -1) -> void:
 	_clear()
 	last_pier = pier_id
 	last_tides = tides.duplicate()
 	var date := int(Time.get_unix_time_from_system() / 86400.0)
-	var seed_value := date if daily else randi()
+	var seed_value: int = seed_override if seed_override >= 0 else (date if daily else randi())
+	if Net.is_host:
+		Net.announce_shift(pier_id, tides, seed_value, boss)
 	Game.begin_session(pier_id, tides, seed_value, daily)
 	shift = Shift.new()
 	shift.configure(pier_id, tides, seed_value, boss, daily)
@@ -144,21 +151,12 @@ func _on_start(pier_id: int, tides: Array, boss: bool, daily: bool) -> void:
 	shift.lobby_requested.connect(show_lobby)
 
 func start_again() -> void:
-	_clear()
 	var pier_id := Game.pier()
 	var date := int(Time.get_unix_time_from_system() / 86400.0)
 	var seed_value := date if Game.session.get("daily", false) else randi()
 	var tides: Array = Game.session.get("tides", [])
-	Game.begin_session(pier_id, tides, seed_value, bool(Game.session.get("daily", false)))
-	shift = Shift.new()
-	shift.configure(pier_id, tides, seed_value, false, bool(Game.session.get("daily", false)))
-	add_child(shift)
-	shift.shift_finished.connect(func(r: Dictionary) -> void:
-		last_result = r
-		last_pier = int(r.pier))
-	shift.open_shop_requested.connect(open_shop)
-	shift.next_shift_requested.connect(start_again)
-	shift.lobby_requested.connect(show_lobby)
+	var daily := bool(Game.session.get("daily", false))
+	_start(pier_id, tides, false, daily, seed_value)
 
 func _pause_shift_for_ui() -> void:
 	if shift != null and is_instance_valid(shift) and shift.player != null:

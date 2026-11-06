@@ -69,6 +69,8 @@ var move_amount := 0.0
 var flashlight: SpotLight3D
 var pier_tilt := 0.0
 var sway_t := 0.0
+var prybar_next := false
+var photo_mode := false
 
 func _ready() -> void:
 	add_to_group("player")
@@ -170,6 +172,11 @@ func _process(dt: float) -> void:
 		lmb_pressed = false
 		lmb_released = false
 		return
+	if photo_mode:
+		_update_hands(dt)
+		lmb_pressed = false
+		lmb_released = false
+		return
 	_update_focus()
 	_update_hands(dt)
 	if gesture_phase == G.NONE:
@@ -189,7 +196,7 @@ func _process(dt: float) -> void:
 	lmb_released = false
 
 func _physics_process(dt: float) -> void:
-	if locked or fainted:
+	if locked or fainted or photo_mode:
 		velocity = Vector3.ZERO
 		move_and_slide()
 		return
@@ -258,6 +265,16 @@ func pick_up(oyster: OysterNode) -> void:
 		nicked = false
 	hands.show_oyster(oyster.species, false, false)
 	virtual_mouse = get_viewport().get_visible_rect().size * 0.5
+	if prybar_next:
+		prybar_next = false
+		sim.wedge_begin()
+		sim.wedge_tick(0.40)
+		sim.wedge_release()
+		if sim.state == OysterSim.State.SEATED:
+			sim.pop_begin()
+			_set_phase(G.POP)
+			Sfx.play("click", -6.0, 0.8)
+			return
 	if oyster.species.drill_seconds > 0.0:
 		_set_phase(G.DRILL)
 		drill_progress = 0.0

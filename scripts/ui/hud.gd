@@ -11,7 +11,6 @@ var prompt_key := "LMB"
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	size = get_viewport_rect().size
 	font = ThemeDB.fallback_font
 
 func _process(_dt: float) -> void:
@@ -75,6 +74,12 @@ func _draw() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, UiKit.MUTED)
 		draw_string(font, box.position + Vector2(200, 104), "plate: %d" % (shift.plate.portions.size() if shift.plate else 0),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 15, UiKit.MUTED)
+	# gadgets
+	var pry := int(Game.state.get("gadgets", {}).get("prybar", 0))
+	var pag := int(Game.state.get("gadgets", {}).get("pager", 0))
+	if pry + pag > 0:
+		draw_string(font, Vector2(margin, s.y - 250), "1 PRY BAR ×%d    2 PAGER ×%d" % [pry, pag],
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 16, UiKit.MUTED)
 	# crosshair
 	if shift.player != null and not shift.player.is_gesturing():
 		draw_circle(s * 0.5, 3.0, Color(1, 1, 1, 0.65))

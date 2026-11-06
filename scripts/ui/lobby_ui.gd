@@ -20,7 +20,6 @@ var net_ip: LineEdit
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	size = get_viewport_rect().size
 	selected_pier = clampi(int(Game.state.get("pier", 1)), 1, 6)
 	var grad := Gradient.new()
 	grad.set_color(0, Color(0.03, 0.06, 0.09))
@@ -98,6 +97,7 @@ func _ready() -> void:
 	row.add_child(UiKit.button(Data.t("BTN_LOG", "Pearl log"), func() -> void: log_requested.emit(), 18))
 	right.add_child(row)
 	right.add_child(UiKit.label(Data.t("LOBBY_NET", "Co-op (M4, experimental)"), 16, UiKit.MUTED))
+	right.add_child(UiKit.label(Data.t("LOBBY_NET_NOTE", "Connection + shift seed only. Live co-op verbs are not implemented."), 12, UiKit.MUTED))
 	var netrow := UiKit.hbox(8)
 	net_ip = LineEdit.new()
 	net_ip.text = "127.0.0.1"

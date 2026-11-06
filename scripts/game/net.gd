@@ -4,6 +4,7 @@ extends Node
 
 signal peer_list_changed
 signal net_error(message: String)
+signal shift_received(pier: int, tides: Array, seed_value: int, boss: bool)
 
 const PORT := 24777
 const MAX_PLAYERS := 4
@@ -51,6 +52,16 @@ func leave() -> void:
 	is_host = false
 	players.clear()
 	peer_list_changed.emit()
+
+func announce_shift(pier: int, tides: Array, seed_value: int, boss: bool) -> void:
+	shift_seed = seed_value
+	if multiplayer.multiplayer_peer != null and not multiplayer.get_peers().is_empty():
+		receive_shift.rpc(pier, tides, seed_value, boss)
+
+@rpc("authority", "call_remote", "reliable")
+func receive_shift(pier: int, tides: Array, seed_value: int, boss: bool) -> void:
+	shift_seed = seed_value
+	shift_received.emit(pier, tides, seed_value, boss)
 
 func player_count() -> int:
 	if multiplayer.multiplayer_peer == null:
