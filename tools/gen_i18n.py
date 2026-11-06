@@ -299,6 +299,7 @@ S = {
 "HUD_RASH": 'BARNACLE RASH — tolerance -20%',
 "HUD_CREW": 'crew: %d',
 "HUD_GADGETS": '1 PRY BAR ×%d    2 PAGER ×%d',
+"TOAST_BRITTLE": "The razor shell snaps. Too fast.",
 }
 
 # fill any key used in data that is missing (defensive)

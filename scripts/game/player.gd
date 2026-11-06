@@ -259,8 +259,8 @@ func pick_up(oyster: OysterNode) -> void:
 		rash = true
 		_toast(Data.t("TOAST_RASH", "Barnacle Rash — the spines bite through these gloves"))
 	if gloves >= 2:
-		sim.wet_hands = false
-	if gloves >= 3 and sim.nicked:
+		sim.wet_hands_scale = 0.5
+	if gloves >= 3 and sim.nicked and randf() < 0.5:
 		sim.nicked = false
 		nicked = false
 	hands.show_oyster(oyster.species, false, false)
@@ -414,6 +414,8 @@ func _process_pop(dt: float) -> void:
 		_set_phase(G.WEDGE)
 		return
 	if lmb_pressed:
+		if Game.tier("knife") >= 6 and sim.pop_ring <= 0.6:
+			sim.pop_ring = 0.1
 		var r := sim.pop_click()
 		match r:
 			OysterSim.Pop.PERFECT:
@@ -518,6 +520,12 @@ func _process_slide(dt: float) -> void:
 		if td != null:
 			tide_mult *= td.tolerance_mult
 	var tol := sim.tolerance_px(knife_tier, tide_mult, rash)
+	if sim.species.max_slide_speed_scale > 0.0 and speed > Registry.balance.slide_hover_speed_ref * sim.species.max_slide_speed_scale:
+		Sfx.play("crack")
+		_toast(Data.t("TOAST_BRITTLE", "The razor shell snaps. Too fast."))
+		sim.shatter_now("brittle")
+		_resolve()
+		return
 	var offline := virtual_mouse.y - _slide_seam_y(p)
 	var wander_mult := 1.0
 	if knife_tier >= 1 and knife_tier <= Registry.balance.knife_wander_mult.size():

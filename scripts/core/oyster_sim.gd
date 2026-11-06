@@ -32,6 +32,7 @@ var steady := false
 var wobble := false
 var slipped := false
 var wet_hands := false
+var wet_hands_scale := 1.0
 var free_slip_available := false
 var nicked := false
 var pop_ring := 1.0
@@ -85,7 +86,9 @@ func wedge_begin() -> void:
 func wedge_tick(dt: float) -> void:
 	if stage != Stage.WEDGE:
 		return
-	var speed := balance.wet_hands_meter_speed if wet_hands else 1.0
+	var speed := 1.0
+	if wet_hands:
+		speed = 1.0 + (balance.wet_hands_meter_speed - 1.0) * wet_hands_scale
 	var step: InteractionStep = Registry.steps.get("wedge", null)
 	var dur := (step.duration if step != null and step.duration > 0.0 else balance.wedge_duration) + species.gesture_time_add
 	if dur <= 0.0:
@@ -222,6 +225,12 @@ func slide_finish() -> void:
 		ratio = float(slide_inside) / float(slide_samples)
 	if ratio >= balance.slide_surgical_inside_ratio and slide_max_speed >= balance.slide_hover_speed_ref * balance.slide_surgical_speed_ratio:
 		surgical = true
+
+func shatter_now(reason := "shattered") -> void:
+	if state == State.BINNED or state == State.SERVED:
+		return
+	_shatter()
+	ruin_reason = reason
 
 func _shatter() -> void:
 	shattered = true
