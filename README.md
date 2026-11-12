@@ -13,15 +13,19 @@ Godot 4.7.2. Everything is primitives + code: no downloaded assets, procedural s
 ## The loop
 
 1. **Catch.** Click oysters in the tidal beds to rake them loose (or hold the mouse button to keep raking). They fly into your bucket.
-2. **Shuck.** Stand at a **SHUCK** bench and click to stab. A needle sweeps a meter. Click in the **gold** band for a **PERFECT** (triple damage, double meat, double pearl chance).
+2. **Shuck.** Stand at a **SHUCK** bench and click to stab. A needle sweeps a meter. Click in the **gold** band for a **PERFECT** (triple damage, double meat, double pearl chance). String PERFECTs together for a streak: at x5 two oysters crack at once, at x10 four, all the way to 128 at x1000.
 3. **Sell.** Walk onto a **SELL** dock. Your meat *and* everything in the crew's Meat Crate turns into cash.
 4. **Upgrade.** Rake Power, Bigger Bucket, Sharper Knife, Meat Quality, Sneakers, Pearl Luck, Tide Magnet (auto-rakes around you) and Warehouse.
 5. **Expand.** Buy open the gates along the coast. Each zone has a fancier oyster worth a lot more:
    Muddy Shallows → Rocky Point → Kelp Forest → Coral Reef → Neon Lagoon → Volcano Vent → Abyssal Trench → Golden Atoll.
-6. **Automate.** At Crew HQ, hire **Deckhands** (fill the Dock Bin), **Shuckers** (Dock Bin → Meat Crate) and
-   **Coordinators** (sell the crate, and every coordinator speeds the whole crew up 10%). Build the **Robotics Lab**
-   for **RakeBots**, **ShuckBot 3000s** and **Sell Drones**, then the **Mega-Factory** to double every robot per level.
-   You can watch your crew walk the yard. They keep working while the game is closed (half speed, up to 8 h).
+6. **Automate.** At the Hiring Hall, hire **Deckhands** (rake into their beach's Dock Bin), **Shuckers**
+   (Dock Bin → Meat Crate, exactly as fast as a Deckhand rakes) and one **Coordinator** per beach (sells
+   that beach's whole crate and speeds up every worker by 50%). Every beach has its own crew outpost with
+   a few slots per worker type; hires fill the Muddy Shallows first, then move up the coast, and opening
+   a gate adds room. **Train** any worker type to make every one of them faster. You can dump your own
+   bucket into a Dock Bin too. Build the **Robotics Lab** for **RakeBots**, **ShuckBot 3000s** and
+   **Sell Drones**, then the **Mega-Factory** to double every robot per level. You can watch your crew
+   work each beach. They keep working while the game is closed (half speed, up to 8 h).
 7. **Pets.** Shucking turns up pearls. Spend them on Mystery Clams at the pet hatchery for pets (Common → SECRET)
    that multiply all cash. Three follow you around. Fuse three duplicates into the next rarity.
 8. **Re-Shell.** Once a run has earned enough, sell the whole operation for a **Golden Shell** (+50% cash forever).
@@ -30,7 +34,7 @@ Godot 4.7.2. Everything is primitives + code: no downloaded assets, procedural s
 Random events roll every few minutes: **Golden Tide** (x2 cash), **Pearl Storm** (x5 pearls),
 **Oyster Frenzy** (instant regrowth) and **Crew Coffee Break** (crew x3).
 
-The **NEXT GOAL** card in the top right always names one concrete thing to do next.
+The **NEXT UP** card in the top right always names one concrete thing to do next.
 
 Rank titles follow all-time earnings: Lowly Fisherman, Mudlark, Deckhand, Head Shucker, Foreman, Harbourmaster,
 Oyster Baron, Shellionaire, Oyster Emperor, Poseidon's Accountant.
@@ -51,9 +55,11 @@ First person. Every binding below is the default; rebind any of them in **Esc �
 | Shop · Crew · Pets · Re-Shell · Map | B · C · P · R · M |
 | Pause (How to play, Controls, Settings, tutorial, quit) | Esc (fixed) |
 
-A 10-step tutorial runs on first launch and names whatever keys you have bound. Skip or replay it from
-the pause menu. Settings: mouse sensitivity, FOV, volume, invert Y, head bob. Walking up to a booth at
-HQ also opens its menu. Losing window focus pauses the game.
+The game opens on a title screen: **Continue**, **Load Save**, **New Game** (a new save slot, never
+overwriting one), **Settings** and **Quit**. A 10-step tutorial runs when you start a new game and names
+whatever keys you have bound; skip or replay it from the pause menu. Settings: volume, fullscreen,
+VSync, FOV, head bob, mouse sensitivity, invert Y. Walking up to a booth at HQ also opens its menu.
+Tabbing out does not pause: your crew keep working, and a click takes control again.
 
 ## Look
 
@@ -68,12 +74,14 @@ GODOT="C:/Users/gbart/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stabl
 "$GODOT" --path .
 ```
 
-The save lives at `user://shuck_sim.json` and autosaves every 20 s and whenever a menu closes.
-Older shift-based saves (`user://save.json`) are ignored; the empire starts fresh.
+Saves live in `user://saves/slot_N.json` and autosave every 20 s and whenever a menu closes. The older
+single save (`user://shuck_sim.json`) moves into slot 1 automatically. Shift-era saves (`user://save.json`)
+are ignored.
 
-Developer flags (after `--`): `--fresh` (don't load or write a save), `--demo` (mid-game state),
-`--menu=crew` (open a tab), `--pause` + `--pause-page=controls`, `--at-bench`, `--look=x,z,yaw,pitch`,
-`--shot=path.png` (screenshot after 3 s, then quit).
+Developer flags (after `--`) skip the title screen and start an unsaved session: `--fresh`, `--demo`
+(mid-game state), `--menu=crew`, `--pause` + `--pause-page=controls`, `--at-bench`, `--look=x,z,yaw,pitch`,
+`--shot=path.png` (+ `--shot-delay=N`, `--perfect`), and `--title` (+ `--title-page=load`) to capture the
+title screen. AGENTS.md has the full list.
 
 ## Tests
 
@@ -92,13 +100,14 @@ robots, Re-Shell). Use that when tuning numbers.
 scripts/sim/catalog.gd       every number: zones, upgrades, crew, robots, pets, ranks, events
 scripts/sim/empire.gd        the whole economy as one plain object (no nodes): testable headless
 scripts/sim/num.gd           1.23K / 4.56M / 7.89B formatting
-scripts/game/game_state.gd   autoload "Game": owns the Empire, save/autosave/offline, signals
+scripts/game/game_state.gd   autoload "Game": owns the Empire, save slots/autosave/offline, signals
+scripts/game/save_store.gd   save-slot files (list, load, write, delete, migrate the old save)
 scripts/game/main.gd         builds the world, avatar, HUD, menus
 scripts/game/avatar.gd       first-person fisherman: look, move, rake, shuck, sell, pets
 scripts/game/hands_view.gd   first-person hands (own viewport): rake, knife, held oyster
-scripts/game/settings.gd     autoload "Settings": key bindings, mouse/FOV/volume, tutorial progress
+scripts/game/settings.gd     autoload "Settings": key bindings, mouse/video/volume, tutorial progress
 scripts/world/               coast builder, oyster beds, stations, crew yard, figures, FX
-scripts/ui/                  HUD, tabbed menu, pause menu (rebinding, settings), tutorial
+scripts/ui/                  HUD, tabbed menu, title screen, pause menu (rebinding, settings), tutorial
 docs/legacy/                 the original shift/boss-based SPEC and DECISIONS, kept for reference
 ```
 
