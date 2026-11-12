@@ -1,5 +1,5 @@
 extends SceneTree
-## SHUCK headless smoke test.
+## SHUCK Simulator headless smoke test: economy rules + a simulated player for pacing.
 ## Run: Godot --headless --path . --script tests/smoke.gd
 
 var failures: Array[String] = []
@@ -13,23 +13,18 @@ func check(cond: bool, msg: String) -> void:
 		failures.append(msg)
 		print("  FAIL ", msg)
 
-func near(a: float, b: float, tol := 0.001) -> bool:
-	return absf(a - b) <= tol
-
 func _initialize() -> void:
-	print("SHUCK smoke test")
-	Registry.ensure_loaded()
-	var bal := Registry.balance
-	var gd := Registry.grade_data
-
-	test_data()
-	test_state_machine()
-	test_grades()
-	test_tickets()
-	test_upgrades()
-	test_pearls()
+	print("SHUCK Simulator smoke test")
+	test_numbers()
+	test_catch_shuck_sell()
+	test_streak()
+	test_upgrades_and_zones()
+	test_crew_pipeline()
+	test_pets()
+	test_reshell()
 	test_save()
-
+	test_save_slots()
+	test_pacing()
 	print("")
 	if failures.is_empty():
 		print("PASS — %d checks" % checks)
@@ -40,492 +35,386 @@ func _initialize() -> void:
 			print("   * ", f)
 		quit(1)
 
-# ---------------------------------------------------------------- data
-func test_data() -> void:
-	print("[data]")
-	var bal := Registry.balance
-	var gd := Registry.grade_data
-	check(Registry.species.size() == 8, "8 species loaded")
-	check(Registry.upgrades.size() == 30, "30 upgrade tiers loaded (5 lines x 6)")
-	check(Registry.piers.size() == 6, "6 piers loaded")
-	check(Registry.tides.size() == 8, "8 Tides loaded")
-	check(Registry.modifiers.size() == 5, "5 ticket modifiers loaded")
-	check(Registry.badges.size() == 12, "12 badges loaded")
-	check(near(Registry.pearl_traits.total_weight(), 99.9), "pearl trait weights total 99.9 (as printed in §8.2)")
-	check(Registry.steps.size() == 4, "4 interaction steps loaded")
-	check(Registry.steps["wedge"].params.get("next", "") == "pop", "wedge chains to pop")
-	check(Registry.steps["pop"].params.get("next", "") == "slide", "pop chains to slide")
-	check(Registry.steps["slide"].params.get("next", "") == "reseat", "slide chains to reseat")
+func test_numbers() -> void:
+	print("numbers")
+	check(Num.short(999.0) == "999", "999 stays 999")
+	check(Num.short(1500.0) == "1.50K", "1500 → 1.50K (%s)" % Num.short(1500.0))
+	check(Num.short(2.5e9) == "2.50B", "2.5e9 → 2.50B")
+	check(Num.cash(12345678.0) == "$12.3M", "cash 12.3M (%s)" % Num.cash(12345678.0))
+	check(Catalog.ZONES.size() == 8, "eight zones")
+	var prev := -1.0
+	var ok := true
+	for z in Catalog.ZONES:
+		ok = ok and float(z.gate) > prev and float(z.value) > 0.0
+		prev = float(z.gate)
+	check(ok, "zone gates strictly increase")
 
-	var db := Registry.get_species("dock_blue")
-	check(db != null and db.value_cents == 8 and near(db.pearl_chance, 0.04) and near(db.slide_tolerance, 8.0),
-		"Dock Blue: 8c, 4% pearl, 8px tolerance")
-	var kum := Registry.get_species("kumamoto")
-	check(near(kum.meter_window_scale, 0.75), "Kumamoto meter window -25%")
-	var gig := Registry.get_species("pacific_gigas")
-	check(gig.meat_yield == 2 and near(gig.gesture_time_add, 0.3), "Gigas: 2 meat, +0.3s per gesture")
-	var razor := Registry.get_species("razor_clam")
-	check(near(razor.slide_tolerance, 14.0) and near(razor.max_slide_speed_scale, 0.7), "Razor: 14px, breaks above 70% speed")
-	var moon := Registry.get_species("moon_snail")
-	check(near(moon.drill_seconds, 4.0), "Moon Snail drill is 4s")
-	var devil := Registry.get_species("devils_claw")
-	check(devil.requires_gloves_tier == 4, "Devil's Claw needs Gloves T4")
-	var cursed := Registry.get_species("cursed_oyster")
-	check(near(cursed.escape_seconds, 8.0), "Cursed Oyster escapes after 8s")
+func test_catch_shuck_sell() -> void:
+	print("catch → shuck → sell")
+	var e := Empire.new(42)
+	check(e.rank_name() == "Lowly Fisherman", "you start as a Lowly Fisherman")
+	var cap := e.bag_capacity()
+	for i in cap:
+		e.catch_oyster(0)
+	check(e.bag_full(), "bucket fills at %d" % cap)
+	check(not e.catch_oyster(0), "a full bucket refuses more")
+	var opened := 0
+	var guard := 0
+	while e.has_oysters() and guard < 1000:
+		var r := e.shuck_hit(false)
+		if r.opened:
+			opened += 1
+		guard += 1
+	check(opened == cap, "every oyster shucks open (%d)" % opened)
+	check(e.meat_count == cap, "one meat per normal shuck")
+	var earned := e.sell()
+	check(is_equal_approx(earned, float(cap) * 2.0), "Dock Blue meat sells for $2 each (%s)" % earned)
+	check(e.meat_count == 0 and e.cash == earned, "selling empties meat into cash")
+	# perfect shucks give double meat
+	var e2 := Empire.new(1)
+	e2.catch_oyster(0)
+	var r2 := {}
+	for i in 10:
+		r2 = e2.shuck_hit(true)
+		if r2.opened:
+			break
+	check(r2.opened and e2.meat_count == 2, "PERFECT shuck yields x2 meat")
+	check(not e2.shuck_hit(false).ok, "no oysters → no shuck")
 
-	var scales := []
-	for i in range(1, 7):
-		scales.append(Registry.get_pier(i).price_scale)
-	check(scales == [1.0, 1.3, 1.7, 2.2, 2.8, 3.5], "pier price scales 1.0/1.3/1.7/2.2/2.8/3.5")
-	var quotas := []
-	for i in range(1, 7):
-		quotas.append(Registry.get_pier(i).quota)
-	check(quotas == [120, 300, 600, 1000, 1600, 2600], "pier quotas match §9.1")
-
-	check(near(GradeLogic.price_mult("S", gd), 1.6), "S pays x1.6")
-	check(near(GradeLogic.tip_pct("S", gd), 0.30), "S tip 30%")
-	check(near(GradeLogic.price_mult("A", gd), 1.25), "A pays x1.25")
-	check(near(GradeLogic.price_mult("C", gd), 0.55), "C pays x0.55")
-	check(near(GradeLogic.price_mult("F", gd), 0.0), "F pays x0")
-
-	var neap := Registry.get_tide("neap")
-	check(near(neap.payout_mult, 0.9) and near(neap.patience_mult, 1.2), "Neap: +20% patience, x0.9")
-	var spring := Registry.get_tide("spring")
-	check(near(spring.patience_mult, 0.8) and near(spring.payout_mult, 1.2), "Spring: -20% patience, x1.2")
-	check(near(Registry.get_tide("slippery").tolerance_mult, 0.7), "Slippery: tolerance -30%")
-	check(Registry.get_tide("gulls").gull_extra == 4, "Gulls: 4 extra gulls")
-	check(Registry.get_tide("low_water").gadget_slots == 1, "Low Water: 1 gadget slot")
-	check(near(bal.wedge_duration, 0.6) and near(bal.pop_duration, 0.5), "wedge 0.6s, pop 0.5s")
-	check(near(bal.patience_base, 22.0) and near(bal.patience_per_extra_oyster, 3.0), "patience 22s, -3s per extra oyster")
-
-# ---------------------------------------------------------------- oyster FSM
-func fresh(species_id := "dock_blue", seed_value := 7) -> OysterSim:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = seed_value
-	var o := OysterSim.new(Registry.get_species(species_id), Registry.balance, Registry.grade_data, rng)
-	return o
-
-func wedge(o: OysterSim, seconds: float) -> void:
-	o.wedge_begin()
-	o.wedge_tick(seconds)
-	o.wedge_release()
-
-func pop(o: OysterSim, at_seconds: float) -> void:
-	o.pop_begin()
-	if at_seconds > 0.0:
-		o.pop_tick(at_seconds)
-	o.pop_click()
-
-func test_state_machine() -> void:
-	print("[oyster state machine]")
-	var o := fresh()
-	check(o.state == OysterSim.State.SPAWNED and o.stage == OysterSim.Stage.WEDGE, "spawns SPAWNED/WEDGE")
-
-	# < 0.40 does nothing, gesture restarts
-	o.wedge_begin()
-	o.wedge_tick(0.20)
-	o.wedge_release()
-	check(o.state == OysterSim.State.SPAWNED and o.wedge_result == OysterSim.Wedge.NONE, "wedge <0.40 restarts, still SPAWNED")
-
-	# clean wedge -> SEATED
-	o.wedge_begin()
-	o.wedge_tick(0.40)
-	o.wedge_release()
-	check(o.state == OysterSim.State.SEATED, "clean wedge -> SEATED")
-	check(o.wedge_result == OysterSim.Wedge.CLEAN, "wedge 0.55-0.75 is CLEAN")
-	check(o.steady, "clean wedge grants Steady")
-
-	# perfect pop -> OPEN
-	pop(o, 0.36)
-	check(o.pop_result == OysterSim.Pop.PERFECT, "ring in inner 30% is PERFECT")
-	check(o.state == OysterSim.State.OPEN and o.stage == OysterSim.Stage.SLIDE, "pop -> OPEN/SLIDE")
-
-	# slide + reseat -> PLATED
-	o.slide_begin()
-	var tol := o.tolerance_px(1)
+## PERFECT streaks crack several oysters at once (never more than you carry); a miss resets it.
+func test_streak() -> void:
+	print("perfect streak")
+	check(Catalog.streak_batch(4) == 1 and Catalog.streak_batch(5) == 2 and Catalog.streak_batch(10) == 4 and Catalog.streak_batch(50) == 8, "tiers: x5 → 2, x10 → 4, x50 → 8")
+	check(Catalog.streak_batch(100) == 16 and Catalog.streak_batch(200) == 32 and Catalog.streak_batch(500) == 64 and Catalog.streak_batch(1000) == 128, "tiers: x100 → 16 … x1000 → 128")
+	var e := Empire.new(61)
+	e.upgrades = {"knife": 60, "bucket": 40}
 	for i in 12:
-		o.slide_sample(0.0, 800.0, 0.016, tol)
-	o.slide_finish()
-	check(o.surgical, "inside tolerance at speed grants Surgical")
-	o.reseat(true)
-	check(o.state == OysterSim.State.PLATED, "reseat over plate -> PLATED")
-	check(o.grade == "S", "clean wedge + perfect pop + surgical + no damage = S")
-	check(o.serve(), "PLATED can be served")
-	check(o.state == OysterSim.State.SERVED, "serve -> SERVED")
-	check(not o.serve(), "SERVED cannot be served twice")
+		e.catch_oyster(0)
+	var opened := 0
+	var r := {}
+	for i in 4:
+		r = e.shuck_hit(true)
+		opened += int(r.count)
+	check(e.perfect_streak == 4 and opened == 4, "below x5: one oyster per crack (%d)" % opened)
+	r = e.shuck_hit(true)
+	check(bool(r.tier_up) and int(r.count) == 2 and e.bag_count() == 6, "5th PERFECT in a row cracks 2 at once (bag %d)" % e.bag_count())
+	check(e.meat_count == 4 * 2 + 2 * 2, "each oyster in the stack gives PERFECT meat (%d)" % e.meat_count)
+	e.perfect_streak = 10
+	r = e.shuck_hit(true)
+	check(int(r.count) == 4 and e.bag_count() == 2, "x10 cracks 4")
+	e.perfect_streak = 999
+	r = e.shuck_hit(true)
+	check(int(r.count) == 2 and e.bag_count() == 0 and not e.has_oysters(), "a huge streak never takes more oysters than you carry (%d)" % int(r.count))
+	check(not e.shuck_hit(true).ok, "an empty bucket shucks nothing")
+	e.catch_oyster(0)
+	e.shuck_hit(false)
+	check(e.perfect_streak == 0, "a miss resets the streak")
 
-	# fight-back path
-	var f := fresh()
-	wedge(f, 0.40)
-	f.pop_begin()
-	for i in 40:
-		f.pop_tick(0.016)
-	check(f.state == OysterSim.State.SPAWNED and f.pop_result == OysterSim.Pop.FIGHTBACK, "no click -> fight back, back to SPAWNED")
-	check(f.fightbacks == 1 and f.stage == OysterSim.Stage.WEDGE, "fight back requires re-wedge (1.2s wasted)")
-	check(near(f.time_penalty, 1.2), "fight back costs 1.2s")
-	wedge(f, 0.40)
-	pop(f, 0.20)
-	check(f.state == OysterSim.State.OPEN, "can complete after fight back")
+func test_upgrades_and_zones() -> void:
+	print("upgrades and zones")
+	# tool balance: tools should be a grind that keeps pace with the beaches, not outrun them
+	var spent := 0.0
+	var lv := 0
+	while Catalog.rake_damage(lv) < float(Catalog.zone(2).hp):
+		spent += Catalog.upgrade_cost("rake", lv)
+		lv += 1
+	check(spent > float(Catalog.zone(3).gate), "one-clicking Kelp Forest oysters costs more than the Coral Reef gate (%s, Lv %d)" % [Num.cash(spent), lv])
+	check(Catalog.bucket_capacity(30) < 250, "the bucket grows steadily, not exponentially (Lv 30 holds %d)" % Catalog.bucket_capacity(30))
+	check(Catalog.rake_damage(40) < float(Catalog.zone(7).hp), "even Rake Lv 40 can't one-shot Golden Atoll oysters (%s)" % Num.short(Catalog.rake_damage(40)))
+	var e := Empire.new(3)
+	check(not e.buy_upgrade("rake"), "can't buy broke")
+	e.cash = 1000.0
+	var c := e.upgrade_cost("rake")
+	check(e.buy_upgrade("rake") and e.level("rake") == 1 and is_equal_approx(e.cash, 1000.0 - c), "rake Lv1 costs %s" % c)
+	check(e.upgrade_cost("rake") > c, "next level costs more")
+	check(e.rake_damage() > 1.0, "rake hits harder")
+	var b0 := Catalog.bucket_capacity(0)
+	e.buy_upgrade("bucket")
+	check(e.bag_capacity() > b0, "bucket grows %d → %d" % [b0, e.bag_capacity()])
+	check(not e.unlock_zone(2), "zones open in order")
+	check(e.unlock_zone(1) and e.zones_unlocked == 2, "Rocky Point opens for %s" % Num.cash(Catalog.zone(1).gate))
+	check(e.can_enter(1) and not e.can_enter(2), "gate state")
 
-	# cracked
-	var c := fresh()
-	wedge(c, 0.40)
-	c.pop_begin()
-	c.pop_click() # instant click: ring still 1.0, outside dot
-	check(c.pop_result == OysterSim.Pop.CRACKED and c.cracked, "early click -> CRACKED")
-	check(c.state == OysterSim.State.OPEN, "cracked still opens")
-	c.slide_begin()
-	for i in 12:
-		c.slide_sample(0.0, 800.0, 0.016, c.tolerance_px(1))
-	c.slide_finish()
-	c.reseat(true)
-	check(c.grade == "C", "crack caps grade at C")
+func test_crew_pipeline() -> void:
+	print("crew pipeline")
+	var e := Empire.new(5)
+	e.cash = 1e6
+	e.hire("deckhand")
+	e.tick(10.0, false)
+	check(is_equal_approx(e.bin_total(), Catalog.crew("deckhand").rate * 10.0), "1 deckhand fills the Dock Bin at its rate (%s)" % e.bin_total())
+	e.hire("shucker")
+	e.tick(10.0, false)
+	check(e.crate_total() > 0.0, "shucker fills the Meat Crate (%s)" % e.crate_total())
+	var before := e.cash
+	var sold := e.sell()
+	check(sold > 0.0 and e.crate_total() == 0.0, "the Sell Pad empties the crate too (%s)" % sold)
+	e.hire("coordinator")
+	before = e.cash
+	e.tick(60.0, false)
+	check(e.cash > before, "a coordinator sells automatically")
+	check(is_equal_approx(e.crew_mult(), 1.0 + Catalog.COORDINATOR_BOOST), "a Coordinator boosts all crew +%d%%" % int(Catalog.COORDINATOR_BOOST * 100.0))
+	check(e.free_slots("coordinator") == 0 and not e.hire("coordinator"), "one Coordinator per beach")
+	check(is_equal_approx(Catalog.crew_cost("coordinator", 1), Catalog.crew_cost("coordinator", 0) * 3.5), "each Coordinator costs 3.5x the last")
+	var ec := Empire.new(51)
+	ec.crew = {"deckhand": 4, "shucker": 4, "coordinator": 1}
+	ec.tick(120.0, false)
+	check(ec.crate_total() < 1.0, "one Coordinator sells a full beach's meat as fast as it's shucked (%s left)" % ec.crate_total())
+	e.cash = 1e10
+	check(not e.hire("rakebot"), "robots need the lab")
+	check(e.buy_lab() and e.hire("rakebot"), "lab unlocks RakeBots")
+	var r := e.catch_rate()
+	e.buy_factory()
+	check(e.catch_rate() > r * 1.9, "Mega-Factory doubles robots")
+	# storage cap
+	var e2 := Empire.new(6)
+	e2.crew = {"deckhand": 100}
+	e2.tick(1000.0, false)
+	check(float(e2.bins[0]) <= e2.storage_capacity(), "Dock Bin respects warehouse cap")
+	var e3 := Empire.new(7)
+	e3.crew = {"deckhand": 10, "shucker": 10, "coordinator": 5}
+	var off := e3.offline(3600.0)
+	check(off > 0.0, "offline earnings (%s for 1h)" % Num.cash(off))
+	# training: a second path that speeds every unit up
+	var e4 := Empire.new(8)
+	e4.cash = 1e6
+	check(not e4.train("deckhand"), "can't train a crew type you haven't hired")
+	e4.hire("deckhand")
+	var r0 := e4.catch_rate()
+	check(e4.train("deckhand") and e4.train_level("deckhand") == 1, "train deckhands")
+	check(is_equal_approx(e4.catch_rate(), r0 * Catalog.train_mult(1)), "training +25%% speed (%s → %s)" % [r0, e4.catch_rate()])
+	check(e4.train_cost("deckhand") > Catalog.train_cost("deckhand", 0), "training gets pricier")
+	# you can feed the Dock Bin yourself
+	var e5 := Empire.new(9)
+	e5.zones_unlocked = 2
+	for i in 5:
+		e5.catch_oyster(1)
+	check(e5.deposit_bin(0) == 5 and e5.bag_count() == 0 and is_equal_approx(float(e5.bins[0]), 5.0), "dump the bucket into the Dock Bin")
+	e5.crew = {"shucker": 3}
+	e5.tick(60.0, false)
+	check(is_equal_approx(e5.crate_total(), 5.0) and is_equal_approx(Empire._sum(e5.crate_values), 5.0 * float(Catalog.zone(1).value)), "shuckers work your oysters at their zone value (%s)" % Empire._sum(e5.crate_values))
+	check(e5.bin_total() == 0.0 and Empire._sum(e5.bin_values) == 0.0, "bin empties cleanly")
+	var e6 := Empire.new(10)
+	for i in 3:
+		e6.catch_oyster(0)
+	e6.bins[0] = e6.storage_capacity() - 1.0
+	check(e6.deposit_bin() == 1 and e6.bag_count() == 2, "deposit respects the warehouse cap")
+	var rt := Empire.from_dict(JSON.parse_string(JSON.stringify(e4.to_dict())))
+	check(rt.train_level("deckhand") == 1, "training round-trips through the save")
+	# beach slots: crew fill the Muddy Shallows first, then the next beach up; no slots = no hire
+	var e7 := Empire.new(13)
+	e7.cash = 1e12
+	e7.zones_unlocked = 3
+	var first := Catalog.crew_slots(0, "deckhand")
+	for i in first + 2:
+		e7.hire("deckhand")
+	var asg: Array = e7.assignment()["deckhand"]
+	check(int(asg[0]) == first and int(asg[1]) == 2 and int(asg[2]) == 0, "hires fill the lowest beach first, then the next (%s)" % str(asg.slice(0, 3)))
+	var total := e7.total_slots("deckhand")
+	while e7.owned("deckhand") < total:
+		e7.hire("deckhand")
+	check(e7.free_slots("deckhand") == 0 and not e7.hire("deckhand"), "can't hire with every beach slot full (%d)" % total)
+	e7.zones_unlocked = 4
+	check(int(e7.assignment()["deckhand"][3]) == 0 and e7.hire("deckhand") and int(e7.assignment()["deckhand"][3]) == 1, "a new beach opens slots; the next hire works there")
+	var e8 := Empire.new(14)
+	e8.zones_unlocked = 2
+	e8.crew = {"deckhand": 2, "shucker": 2}
+	e8.tick(30.0, false)
+	e8.crew = {"deckhand": 6, "shucker": 6}
+	e8.tick(30.0, false)
+	check(float(e8.crates[1]) > 0.0 and float(e8.crates[0]) > 0.0 and is_equal_approx(Empire._sum(e8.crate_values), float(e8.crates[0]) * float(Catalog.zone(0).value) + float(e8.crates[1]) * float(Catalog.zone(1).value)), "crew work and earn at their own beach's value")
+	check(is_equal_approx(e8.unit_rate("shucker"), e8.unit_rate("deckhand")) and is_equal_approx(e8.unit_rate("shuckbot"), e8.unit_rate("rakebot")), "a Shucker keeps pace with a Deckhand (robots too)")
+	var e9 := Empire.new(15)
+	e9.crew = {"deckhand": 3, "shucker": 3}
+	e9.upgrades = {"warehouse": 10}
+	e9.tick(600.0, false)
+	check(float(e9.bins[0]) < 1.0, "matched crews keep the Dock Bin from piling up (%s left)" % e9.bins[0])
+	var old := e4.to_dict()
+	old.erase("bins")
+	old["dock_bin"] = 7.0
+	check(is_equal_approx(float(Empire.from_dict(old).bins[0]), 7.0), "old single-bin saves migrate")
 
-	# juice loss / stab
-	var s := fresh()
-	wedge(s, 0.40)
-	pop(s, 0.20)
-	s.slide_begin()
-	for i in 40:
-		s.slide_sample(30.0, 400.0, 0.1, s.tolerance_px(1))
-	check(s.stabbed and s.juice_loss, "cumulative off-line > 40px stabs the meat")
-	s.slide_finish()
-	s.reseat(true)
-	check(s.grade == "C", "stab caps grade at C")
+func test_pets() -> void:
+	print("pets")
+	var e := Empire.new(11)
+	check(e.hatch("common") == "", "no pearls → no hatch")
+	e.pearls = 500
+	var got: Dictionary = {}
+	for i in 60:
+		var id := e.hatch("common")
+		got[id] = true
+	check(e.pets.size() == 60, "60 pets hatched")
+	check(e.equipped.size() == Catalog.PET_SLOTS, "auto-equips up to %d" % Catalog.PET_SLOTS)
+	check(got.size() >= 3, "variety from a clam (%d kinds)" % got.size())
+	e.equip_best()
+	check(e.pet_mult() > 1.2, "equipped pets multiply cash (x%s)" % e.pet_mult())
+	var e2 := Empire.new(12)
+	e2.pets = ["hermit", "hermit", "hermit"]
+	var f := e2.fuse("hermit")
+	check(f != "" and int(Catalog.pet(f).rarity) == 1 and e2.pets.size() == 1, "fuse 3 commons → uncommon (%s)" % f)
+	# distribution of the mythic clam
+	var e3 := Empire.new(13)
+	e3.pearls = 300 * 2000
+	var leg := 0
+	for i in 2000:
+		if int(Catalog.pet(e3.hatch("mythic")).rarity) >= 3:
+			leg += 1
+	check(leg > 1300, "Abyssal Clam is mostly epic+ (%d/2000)" % leg)
 
-	# shattered
-	var sh := fresh()
-	wedge(sh, 0.40)
-	pop(sh, 0.20)
-	sh.slide_begin()
-	sh.slide_sample(90.0, 200.0, 0.016, sh.tolerance_px(1))
-	check(sh.state == OysterSim.State.BINNED and sh.grade == "F" and sh.shattered, "off the shell shatters -> F/BINNED")
+func test_reshell() -> void:
+	print("re-shell")
+	var e := Empire.new(21)
+	e.cash = 5e5
+	check(not e.reshell(), "not before the target")
+	e._earn(Catalog.reshell_cost(0))
+	e.upgrades = {"rake": 10}
+	e.crew = {"deckhand": 5}
+	e.zones_unlocked = 4
+	e.pets = ["seal"]
+	e.equipped = [0]
+	e.pearls = 9
+	check(e.reshell(), "re-shell at %s" % Num.cash(Catalog.reshell_cost(0)))
+	check(e.shells == 1 and e.cash == 0.0 and e.level("rake") == 0 and e.owned("deckhand") == 0 and e.zones_unlocked == 1, "run resets")
+	check(e.pets.size() == 1 and e.pearls == 9, "pets and pearls kept")
+	check(is_equal_approx(e.shell_mult(), 1.5), "Golden Shell = +50% cash")
+	check(e.reshell_cost() > Catalog.reshell_cost(0), "next re-shell costs more")
+	check(e.rank() > 0, "rank survives (based on all-time earnings)")
 
-	# dropped
-	var d := fresh()
-	wedge(d, 0.40)
-	pop(d, 0.20)
-	d.slide_begin()
-	d.slide_sample(0.0, 800.0, 0.016, d.tolerance_px(1))
-	d.slide_finish()
-	d.reseat(false)
-	check(d.grade == "F" and d.state == OysterSim.State.BINNED, "dropped -> Ruined F")
-	check(not d.serve(), "BINNED cannot be served")
-
-	# abandoned
-	var a := fresh()
-	wedge(a, 0.40)
-	a.abandon()
-	check(a.grade == "F" and a.state == OysterSim.State.BINNED, "abandoned -> F")
-
-	# SPAWNED cannot be served / plated directly
-	var bad := fresh()
-	check(not bad.serve(), "SPAWNED cannot serve (transition guarded)")
-	bad.reseat(true)
-	check(bad.state == OysterSim.State.SPAWNED, "SPAWNED cannot plate (transition guarded)")
-
-	# slip
-	var sl := fresh()
-	sl.wedge_begin()
-	sl.wedge_tick(0.70)
-	sl.wedge_release()
-	check(sl.wedge_result == OysterSim.Wedge.SLIP, "meter >1.00 slips")
-	check(sl.state == OysterSim.State.SPAWNED, "slip does not seat the oyster")
-
-	# wedge bands
-	var snag := fresh()
-	wedge(snag, 0.30) # 0.5
-	check(snag.wedge_result == OysterSim.Wedge.SNAG and near(snag.time_penalty, 0.15), "0.40-0.55 snags, +0.15s")
-	var wob := fresh()
-	wedge(wob, 0.48) # 0.8
-	check(wob.wedge_result == OysterSim.Wedge.WOBBLE and wob.wobble, "0.75-1.00 wobbles")
-
-	# Steady widens tolerance by 8%
-	var t1 := fresh()
-	var base_tol := t1.tolerance_px(1)
-	wedge(t1, 0.40)
-	var steady_tol := t1.tolerance_px(1)
-	check(near(steady_tol, base_tol * 1.08), "Steady gives +8% slide tolerance")
-	# knife tiers 6 -> 18
-	check(near(t1.tolerance_px(6), (8.0 + 12.0) * 1.08), "knife T6 raises Dock Blue 8px to 20px, steady 21.6")
-	# Kumamoto narrows the clean band
-	var k := fresh("kumamoto")
-	k.wedge_begin()
-	k.wedge_tick(0.40) # 0.667, outside 0.575-0.725? no, inside
-	k.wedge_release()
-	check(k.wedge_result == OysterSim.Wedge.CLEAN, "Kumamoto still accepts 0.667")
-	var k2 := fresh("kumamoto")
-	k2.wedge_begin()
-	k2.wedge_tick(0.34) # 0.567 < 0.575 -> snag
-	k2.wedge_release()
-	check(k2.wedge_result == OysterSim.Wedge.SNAG, "Kumamoto -25% window snags at 0.567")
-
-# ---------------------------------------------------------------- grades
-func test_grades() -> void:
-	print("[grades]")
-	var o := fresh()
-	wedge(o, 0.40)
-	pop(o, 0.20) # normal pop, clean wedge, no surgical
-	o.slide_begin()
-	o.slide_sample(0.0, 200.0, 0.016, o.tolerance_px(1))
-	o.slide_finish()
-	o.reseat(true)
-	check(o.grade == "B", "clean wedge + normal pop, slow slide = B")
-
-	var a := fresh()
-	wedge(a, 0.40)
-	pop(a, 0.36)
-	a.slide_begin()
-	a.slide_sample(0.0, 200.0, 0.016, a.tolerance_px(1))
-	a.slide_finish()
-	a.reseat(true)
-	check(a.grade == "A", "clean pop floors at A without surgical")
-
-	var f := fresh()
-	f.abandon()
-	check(f.compute_grade() == "F", "F bucket for ruined oyster")
-
-	# knife T4 adds +1 score (SPEC §10 line A)
-	var t4 := fresh()
-	t4.knife_tier_bonus = Registry.balance.knife_t4_score_bonus
-	wedge(t4, 0.40)
-	pop(t4, 0.20)
-	t4.slide_begin()
-	t4.slide_sample(0.0, 200.0, 0.016, t4.tolerance_px(1))
-	t4.slide_finish()
-	t4.reseat(true)
-	check(t4.grade_score == 21, "Oyster Fork adds +1 grade score (20 -> 21)")
-
-# ---------------------------------------------------------------- tickets
-func test_tickets() -> void:
-	print("[tickets]")
-	var gd := Registry.grade_data
-	var pier := Registry.get_pier(1)
-	var sp := Registry.species
-	var t := TicketSim.new()
-	t.species_ids = PackedStringArray(["dock_blue"])
-	t.portions_total = 1
-	t.grades = PackedStringArray(["B"])
-	t.accepted = true
-	var p := t.payout(sp, pier, gd, 0.0)
-	check(p.base == 8 and p.tip == 0 and p.total == 8, "1x Dock Blue B: 8c base, 0c tip, 8c total")
-
-	t.grades = PackedStringArray(["S"])
-	p = t.payout(sp, pier, gd, 0.0)
-	check(p.base == 13 and p.tip == 2 and p.total == 15, "S: 12.8 -> 13 base, 2.4 -> 2 tip")
-
-	p = t.payout(sp, pier, gd, 0.10)
-	check(p.tip == 3, "tip bonus +10%: 2.4*1.1=2.64 -> 3")
-
-	var t2 := TicketSim.new()
-	t2.species_ids = PackedStringArray(["dock_blue", "dock_blue"])
-	t2.portions_total = 2
-	t2.grades = PackedStringArray(["S", "B"])
-	var pier2 := Registry.get_pier(2) # scale 1.3
-	p = t2.payout(sp, pier2, gd, 0.0)
-	check(p.base == 27, "pier 2 scale 1.3: S+B = 27 base")
-	check(p.tip == 4, "pier 2 S+B tip = 4")
-
-	var t3 := TicketSim.new()
-	t3.species_ids = PackedStringArray(["dock_blue"])
-	t3.portions_total = 1
-	t3.grades = PackedStringArray(["S"])
-	t3.modifier = Registry.get_modifier("no_pearl")
-	p = t3.payout(sp, pier, gd, 0.0)
-	check(p.base == 18, "no-pearl modifier +40% pay: 12.8 -> 17.9 -> 18")
-
-	t3.modifier = Registry.get_modifier("regulars")
-	p = t3.payout(sp, pier, gd, 0.0)
-	check(p.tip == 4, "regular's order: tip +50% (2.4*1.5=3.6 -> 4)")
-
-	t3.walked_out = true
-	p = t3.payout(sp, pier, gd, 0.0)
-	check(p.total == 0 and p.walked_out, "walked out pays nothing")
-
-	var pt := TicketSim.new()
-	pt.species_ids = PackedStringArray(["dock_blue", "dock_blue", "dock_blue", "dock_blue"])
-	pt.modifier = Registry.get_modifier("regulars")
-	var pat := pt.calc_patience(Registry.balance, 1.0, 0.0)
-	check(near(pat, 9.8), "patience: (22-9)*0.75 = 9.8s")
-	pt.patience_left = 0.0
-	pt.accepted = true
-	pt.tick(0.01)
-	check(pt.walked_out, "patience expiry walks out")
-
-	# rail timeout before the ticket is taken
-	var rail := TicketSim.new()
-	rail.patience_left = 5.0
-	rail.rail_left = 0.05
-	rail.tick(0.06)
-	check(rail.walked_out, "untaken ticket walks out after rail timeout")
-
-	# serving all portions completes
-	var done := TicketSim.new()
-	done.portions_total = 2
-	done.species_ids = PackedStringArray(["dock_blue", "dock_blue"])
-	done.serve("B", 1)
-	check(not done.completed, "1 of 2 portions is not complete")
-	done.serve("A", 1)
-	check(done.completed and done.grades.size() == 2, "all portions served completes ticket")
-
-# ---------------------------------------------------------------- upgrades
-func test_upgrades() -> void:
-	print("[upgrades]")
-	var state := {"money": 0, "upgrades": {"knife": 1, "gloves": 1, "bench": 1, "auto": 1, "floor": 1}, "pier": 1, "franchise": false}
-	var r := Economy.buy(state, "knife")
-	check(not r.ok and r.reason == "money", "knife T2 needs 120c")
-	state.money = 120
-	r = Economy.buy(state, "knife")
-	check(r.ok and r.cost == 120, "buy knife T2 for 120c")
-	check(state.money == 0 and state.upgrades.knife == 2, "money 120 -> 0, tier 1 -> 2")
-	r = Economy.buy(state, "knife")
-	check(not r.ok and r.reason == "locked", "knife T3 locked at pier 1")
-	state.money = 100000
-	state.pier = 5
-	r = Economy.buy(state, "knife")
-	check(r.ok and r.cost == 400 and state.upgrades.knife == 3, "knife T3 unlocked and costs 400 at pier 5")
-	# T4/T5 at pier 6
-	state.upgrades.knife = 3
-	state.pier = 6
-	r = Economy.buy(state, "knife")
-	check(r.ok and r.cost == 1100, "knife T4 at pier 6")
-	r = Economy.buy(state, "knife")
-	check(not r.ok and r.reason == "locked", "knife T5 is franchise-only")
-	state.franchise = true
-	r = Economy.buy(state, "knife")
-	check(r.ok and r.cost == 2600, "knife T5 in franchise")
-	r = Economy.buy(state, "knife")
-	check(r.ok and r.cost == 5500, "knife T6 in franchise")
-	r = Economy.buy(state, "knife")
-	check(not r.ok and r.reason == "maxed", "knife line maxed at T6")
-
-	var expected := {"knife": 120 + 400 + 1100 + 2600 + 5500,
-		"gloves": 120 + 400 + 1100 + 2600 + 5500,
-		"bench": 120 + 400 + 1100 + 2600 + 5500,
-		"auto": 900 + 2200 + 4500 + 7000 + 12000,
-		"floor": 150 + 500 + 1300 + 3000 + 6500}
-	for line in expected.keys():
-		var sum := 0
-		for u in Registry.line_tiers(line):
-			sum += u.cost
-		check(sum == expected[line], "%s ladder sums to %dc" % [line, expected[line]])
-	check(Economy.total_ladder_cost() == 67210, "full ladder costs 67,210c (see DECISIONS.md)")
-
-# ---------------------------------------------------------------- pearls
-func test_pearls() -> void:
-	print("[pearls]")
-	var bal := Registry.balance
-	var cfg := Registry.pearl_config
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 42
-
-	# spawn-time roll: pearls exist before the shell opens and never change on open
-	var o := fresh()
-	var rolled := PearlRoller.roll(rng, 1.0, 1)
-	o.setup_pearls(rolled)
-	var before := o.value_pearls()
-	var before_count := o.pearls.size()
-	check(before_count >= 1, "pearls are rolled before any gesture")
-	wedge(o, 0.40)
-	pop(o, 0.36)
-	o.slide_begin()
-	o.slide_sample(0.0, 800.0, 0.016, o.tolerance_px(1))
-	o.slide_finish()
-	o.reseat(true)
-	check(o.pearls.size() == before_count and o.value_pearls() == before, "opening does not reroll or change pearls")
-	check(o.has_pearl(), "pearl present on open")
-
-	# value curve: value = base * (size/6)^2.2
-	var p1 := Pearl.new()
-	p1.size = 6.0
-	p1.lustre = 1
-	p1.trait_id = "common"
-	p1.colour = 0
-	var p2 := Pearl.new()
-	p2.size = 12.0
-	p2.lustre = 1
-	p2.trait_id = "common"
-	p2.colour = 0
-	var v1 := PearlRoller.value_of(p1, cfg)
-	var v2 := PearlRoller.value_of(p2, cfg)
-	check(near(float(v2) / float(v1), pow(2.0, 2.2), 0.05), "size curve (size/6)^2.2")
-	var pf := Pearl.new()
-	pf.size = 6.0
-	pf.lustre = 1
-	pf.colour = 0
-	pf.trait_id = "flawed"
-	check(near(float(PearlRoller.value_of(pf, cfg)) / float(v1), 0.4, 0.02), "Flawed value x0.4")
-	var pm := Pearl.new()
-	pm.trait_id = "mother_of_pearl"
-	check(PearlRoller.value_of(pm, cfg) == 2500, "Mother-of-Pearl worth 2,500c")
-
-	# trait distribution over 100k samples, 5 sigma bounds
-	var counts := {}
-	for id in Registry.pearl_traits.ids:
-		counts[id] = 0
-	var n := 100000
-	for i in n:
-		counts[PearlRoller.roll_trait(rng)] += 1
-	var weights := Registry.pearl_traits.weights
-	for i in weights.size():
-		var id: String = Registry.pearl_traits.ids[i]
-		var p := weights[i] / 100.0
-		var expected := n * p
-		var sigma := sqrt(n * p * (1.0 - p))
-		var got: int = counts[id]
-		check(absf(float(got) - expected) <= 5.0 * maxf(sigma, 1.0),
-			"trait %s: %d / %d (%.2f%%)" % [id, got, n, 100.0 * got / n])
-	check(counts["common"] + counts["lustrous"] + counts["flawed"] + counts["twin"]
-		+ counts["cultured"] + counts["mother_of_pearl"] + counts["tidewrought"] == n,
-		"every pearl rolls exactly one trait")
-
-	# pearl chance over 100k spawns at 4%
-	var found := 0
-	for i in 100000:
-		if not PearlRoller.roll(rng, 0.04, 1).is_empty():
-			found += 1
-	var exp_found := 4000.0
-	var sigma_found := sqrt(100000 * 0.04 * 0.96)
-	check(absf(found - exp_found) <= 5.0 * sigma_found, "Dock Blue 4%% pearl chance: %d / 100000" % found)
-
-	# Log entry / save shape
-	check(cfg.shapes.size() == 6 and cfg.colours.size() == 8, "6 shapes x 8 colours = 48 log entries")
-
-# ---------------------------------------------------------------- save
 func test_save() -> void:
-	print("[save]")
-	var path := "user://smoke_save.json"
-	var s := SaveGame.default_state()
-	s.money = 1234
-	s.upgrades.knife = 3
-	s.pearls.append({"shape": 2, "colour": 5, "lustre": 4, "size": 9.1, "trait": "lustrous", "pier": 3})
-	s.log["2-5"] = {"bestLustre": 4, "bestSize": 9.1, "count": 1}
-	s.stats.oysters = 77
-	s.shifts = 4
-	check(SaveGame.save_to(path, s) == OK, "write user://save.json")
-	var r := SaveGame.load_from(path)
-	check(r.ok, "read save")
-	check(r.data.money == 1234 and r.data.upgrades.knife == 3, "money and upgrades round-trip")
-	check(r.data.pearls.size() == 1 and r.data.pearls[0].trait == "lustrous", "pearl round-trip")
-	check(r.data.log["2-5"].count == 1 and near(float(r.data.log["2-5"].bestSize), 9.1), "pearl log round-trip")
-	check(int(r.data.version) == SaveGame.CURRENT_VERSION, "version is %d" % SaveGame.CURRENT_VERSION)
+	print("save")
+	var e := Empire.new(31)
+	e.cash = 12345.5
+	e.upgrades = {"knife": 3}
+	e.crew = {"shucker": 2}
+	e.pets = ["otter", "seal"]
+	e.equipped = [1]
+	e.bag = {"1": 4}
+	e.zones_unlocked = 3
+	var d := e.to_dict()
+	var parsed: Variant = JSON.parse_string(JSON.stringify(d))
+	var r := Empire.from_dict(parsed)
+	check(is_equal_approx(r.cash, 12345.5), "cash round-trips")
+	check(r.level("knife") == 3 and r.owned("shucker") == 2, "upgrades + crew round-trip")
+	check(r.pets == ["otter", "seal"] and r.equipped == [1], "pets round-trip")
+	check(r.bag_count() == 4 and r.zones_unlocked == 3, "bucket + zones round-trip")
+	var old := Empire.from_dict({"version": 1, "money": 999})
+	check(old.cash == 0.0, "old shift-based saves start a fresh empire")
 
-	var newer := s.duplicate(true)
-	newer.version = SaveGame.CURRENT_VERSION + 1
-	var bad := SaveGame.from_json(JSON.stringify(newer))
-	check(not bad.ok and bad.error == "newer_version", "newer save refused, not silently loaded")
-	var nover := s.duplicate(true)
-	nover.erase("version")
-	bad = SaveGame.from_json(JSON.stringify(nover))
-	check(not bad.ok and bad.error == "no_version", "save without version refused")
-	bad = SaveGame.from_json("not json at all")
-	check(not bad.ok and bad.error == "not_json", "corrupt save refused")
+## Save slots in a scratch folder: list order, latest, next free slot, delete, legacy migration.
+func test_save_slots() -> void:
+	print("save slots")
+	var dir := "user://smoke_saves"
+	var st := SaveStore.new(dir)
+	for s in st.list():
+		st.delete(int(s.slot))
+	check(st.list().is_empty() and st.latest() == -1 and st.next_free() == 1, "empty save folder")
+	var a := Empire.new(41)
+	a.cash = 111.0
+	var b := Empire.new(42)
+	b.cash = 222.0
+	b.zones_unlocked = 3
+	st.write(1, a, {"name": "Save 1", "last_played": 1000.0, "play_time": 60.0})
+	st.write(2, b, {"name": "Save 2", "last_played": 2000.0, "play_time": 7200.0})
+	var l := st.list()
+	check(l.size() == 2 and int(l[0].slot) == 2 and st.latest() == 2, "most recently played first")
+	check(str(l[0].zone) == "Kelp Forest" and is_equal_approx(float(l[0].cash), 222.0), "slot summary (zone, cash)")
+	check(st.next_free() == 3, "new game takes the next free slot")
+	var back := Empire.from_dict(st.read(1).empire)
+	check(is_equal_approx(back.cash, 111.0), "slot round-trips the empire")
+	st.delete(1)
+	check(st.list().size() == 1 and st.next_free() == 1, "delete frees the slot")
+	st.delete(2)
+	var legacy := "user://smoke_legacy.json"
+	var f := FileAccess.open(legacy, FileAccess.WRITE)
+	f.store_string(JSON.stringify(b.to_dict()))
+	f.close()
+	check(st.migrate_legacy(legacy) == 1 and is_equal_approx(float(st.list()[0].cash), 222.0) and not FileAccess.file_exists(legacy), "the old single save moves into slot 1")
+	st.delete(1)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(legacy + ".bak"))
 
-	var old := {"version": 1, "money": 55}
-	var mig := SaveGame.from_json(JSON.stringify(old))
-	check(mig.ok and mig.data.money == 55, "old v1 save migrates")
-	check(mig.data.upgrades.has("floor") and mig.data.stats.has("faints"), "migrated save fills missing defaults")
+## A bot that plays the loop: rake → shuck → sell → buy the cheapest useful thing.
+## Prints the time each milestone takes so balance changes are visible.
+func test_pacing() -> void:
+	print("pacing (simulated player, 5 clicks/s)")
+	var e := Empire.new(99)
+	var t := 0.0
+	var marks := {}
+	var dt := 1.0
+	var clicks_per_s := 5.0
+	var phase := "catch"
+	var walk := 0.0
+	var limit := 6.0 * 3600.0
+	while t < limit:
+		t += dt
+		e.tick(dt)
+		if walk > 0.0:
+			walk -= dt
+		elif phase == "catch":
+			var z := e.best_zone()
+			var per := ceilf(e.zone_hp(z) / e.rake_damage()) / clicks_per_s + 0.4
+			var n := int(dt / per) + (1 if randf() < fmod(dt / per, 1.0) else 0)
+			for i in n:
+				if not e.catch_oyster(z):
+					break
+			if e.bag_full():
+				phase = "shuck"
+				walk = 4.0
+		elif phase == "shuck":
+			for i in int(clicks_per_s * dt):
+				e.shuck_hit(randf() < 0.25)
+			if not e.has_oysters():
+				phase = "sell"
+				walk = 3.0
+		elif phase == "sell":
+			e.sell()
+			phase = "catch"
+			walk = 4.0
+			_bot_spend(e)
+		for k in [["zone2", e.zones_unlocked >= 2], ["deckhand", e.owned("deckhand") > 0], ["zone3", e.zones_unlocked >= 3],
+				["coordinator", e.owned("coordinator") > 0], ["zone4", e.zones_unlocked >= 4], ["lab", e.lab],
+				["zone5", e.zones_unlocked >= 5], ["reshell_ready", e.can_reshell()], ["zone6", e.zones_unlocked >= 6]]:
+			if k[1] and not marks.has(k[0]):
+				marks[k[0]] = t
+		if e.can_reshell() and not marks.has("reshell_ready"):
+			marks["reshell_ready"] = t
+	for k in marks.keys():
+		print("     %-14s %s" % [k, Num.duration(marks[k])])
+	print("     after 6h: %s cash, rank %s, income %s/s" % [Num.cash(e.cash), e.rank_name(), Num.short(e.passive_income())])
+	check(marks.has("zone2") and float(marks.zone2) > 360.0 and float(marks.zone2) < 1200.0, "Rocky Point takes a real grind (6-20 min)")
+	check(marks.has("deckhand") and float(marks.deckhand) > 360.0 and float(marks.deckhand) < 1200.0, "first crew hire is earned, not instant (6-20 min)")
+	check(marks.has("lab") and float(marks.lab) < 2.5 * 3600.0, "robots within 2.5 hours")
+	check(marks.has("reshell_ready") and float(marks.reshell_ready) < 4.0 * 3600.0, "first Re-Shell within 4 hours")
 
-	# the real save path is used by the game
-	check(SaveGame.DEFAULT_PATH == "user://save.json", "save path is user://save.json")
-	DirAccess.remove_absolute(ProjectSettings.globalize_path(path))
+func _bot_spend(e: Empire) -> void:
+	var guard := 0
+	while guard < 200:
+		guard += 1
+		if e.zones_unlocked < Catalog.ZONES.size() and e.cash >= e.zone_cost(e.zones_unlocked):
+			e.unlock_zone(e.zones_unlocked)
+			continue
+		if not e.lab and e.cash >= Catalog.ROBOTICS_LAB_COST and e.owned("coordinator") > 0:
+			e.buy_lab()
+			continue
+		var options: Array = []
+		for id in ["rake", "bucket", "knife", "quality", "warehouse"]:
+			if not e.upgrade_maxed(id):
+				options.append([e.upgrade_cost(id), "u", id])
+		for c in Catalog.CREW:
+			if (not c.robot or e.lab) and e.free_slots(c.id) > 0:
+				options.append([e.hire_cost(c.id), "c", c.id])
+		for c in Catalog.CREW:
+			if e.owned(c.id) > 0 and not e.train_maxed(c.id):
+				options.append([e.train_cost(c.id), "t", c.id])
+		if e.lab:
+			options.append([e.factory_cost(), "f", ""])
+		options.sort_custom(func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
+		if options.is_empty() or e.cash < float(options[0][0]):
+			return
+		# keep a little saved for the next gate
+		var next_gate := e.zone_cost(e.zones_unlocked) if e.zones_unlocked < Catalog.ZONES.size() else INF
+		if float(options[0][0]) > e.cash * 0.6 and next_gate < e.cash * 3.0:
+			return
+		match str(options[0][1]):
+			"u": e.buy_upgrade(str(options[0][2]))
+			"c": e.hire(str(options[0][2]))
+			"t": e.train(str(options[0][2]))
+			"f": e.buy_factory()

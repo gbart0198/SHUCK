@@ -58,38 +58,43 @@ static func quad(size: Vector2, color: Color, pos := Vector3.ZERO) -> MeshInstan
 	mi.position = pos
 	return mi
 
-## A flat-shaded, ridged shell dome. Built from triangles so the silhouette reads.
+## A flat-shaded, ridged shell dome: a centre fan plus rings, every face lit from above.
 static func shell_mesh(rx: float, rz: float, h: float, segs := 20, rings := 3, ridges := 13) -> ArrayMesh:
-	var mesh := ArrayMesh.new()
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
 	var at := func(ring: int, seg: int) -> Vector3:
 		var t := float(ring) / float(rings)
 		var a := TAU * float(seg % segs) / float(segs)
-		var ripple := 1.0 + 0.05 * sin(a * ridges)
+		var ripple := 1.0 + 0.06 * sin(a * ridges)
 		var x := cos(a) * rx * t * ripple
 		var z := sin(a) * rz * t * ripple
-		var y := h * (1.0 - t * t) + 0.012 * sin(a * ridges) * t
+		var y := h * (1.0 - t * t) + 0.015 * sin(a * ridges) * t
 		return Vector3(x, y, z)
+	var add_tri := func(p0: Vector3, p1: Vector3, p2: Vector3) -> void:
+		var n: Vector3 = (p1 - p0).cross(p2 - p0).normalized()
+		if n.y < 0.0:
+			var tmp := p1
+			p1 = p2
+			p2 = tmp
+			n = -n
+		# Godot treats clockwise (seen from the normal side) as front-facing
+		for v: Vector3 in [p0, p2, p1]:
+			verts.append(v)
+			norms.append(n)
 	for seg in segs:
-		for ring in rings:
+		add_tri.call(at.call(0, 0), at.call(1, seg), at.call(1, seg + 1))
+		for ring in range(1, rings):
 			var a: Vector3 = at.call(ring, seg)
 			var b: Vector3 = at.call(ring, seg + 1)
 			var c: Vector3 = at.call(ring + 1, seg)
 			var d: Vector3 = at.call(ring + 1, seg + 1)
-			var tris: Array = [[a, b, c]] if ring == 0 else [[a, b, c], [b, d, c]]
-			for tri in tris:
-				var p0: Vector3 = tri[0]
-				var p1: Vector3 = tri[1]
-				var p2: Vector3 = tri[2]
-				var n: Vector3 = (p1 - p0).cross(p2 - p0).normalized()
-				for v: Vector3 in tri:
-					verts.append(v)
-					norms.append(n)
+			add_tri.call(a, b, c)
+			add_tri.call(b, d, c)
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = norms
+	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
 
@@ -103,41 +108,36 @@ static func shell(rx: float, rz: float, h: float, color: Color, flip := false) -
 		mi.scale = Vector3(1.0, -1.0, 1.0)
 	return mi
 
-## An oyster in its closed or open state, built from two ridged shell halves.
-static func oyster(species: SpeciesData, open := false, with_pearl := false) -> Node3D:
+## An oyster, closed or open, built from two ridged shell halves. The lid pivot is named "Lid".
+static func oyster(shell_color: Color, meat_color: Color, open := false, sc := Vector3(1.0, 0.42, 1.25)) -> Node3D:
 	var root := Node3D.new()
 	root.name = "OysterModel"
-	var sc := species.mesh_scale
-	var bottom := shell(0.52, 0.66, 0.16, species.ridge_color, true)
+	var ridge_color := shell_color.darkened(0.3)
+	var bottom := shell(0.52, 0.66, 0.16, ridge_color, true)
 	bottom.position = Vector3(0, 0.12, 0)
 	bottom.scale = Vector3(sc.x, sc.y, sc.z)
 	root.add_child(bottom)
 	var top_pivot := Node3D.new()
+	top_pivot.name = "Lid"
 	top_pivot.position = Vector3(0, 0.11, -0.52 * sc.z)
 	top_pivot.rotation.x = deg_to_rad(-108.0 if open else 0.0)
 	root.add_child(top_pivot)
-	var top := shell(0.52, 0.66, 0.16, species.shell_color)
+	var top := shell(0.52, 0.66, 0.16, shell_color)
 	top.position = Vector3(0, 0.02, 0.52 * sc.z)
 	top.scale = Vector3(sc.x, sc.y, sc.z)
 	top_pivot.add_child(top)
-	var hinge := cylinder(0.055, 0.16, species.ridge_color.darkened(0.2),
-		Vector3(0, 0.10, -0.52 * sc.z), Vector3(0, 0, PI * 0.5))
-	root.add_child(hinge)
-	if open:
-		var meat := sphere(0.40, species.meat_color, Vector3(0, 0.16, 0.04), Vector3(1.0, 0.34, 1.15))
-		meat.material_override = material(species.meat_color, 0.55, 0.0, species.meat_color * 0.25)
-		root.add_child(meat)
-		for i in 3:
-			var ridge := box(Vector3(0.03, 0.02, 0.5 * sc.z), species.ridge_color.darkened(0.12),
-				Vector3(-0.28 + i * 0.28, 0.14, 0.06), Vector3(0, 0, 0.12 * (i - 1)))
-			root.add_child(ridge)
-		if with_pearl:
-			var p := sphere(0.10, Color(0.97, 0.95, 0.88), Vector3(0.06, 0.22, 0.18))
-			root.add_child(p)
+	root.add_child(cylinder(0.055, 0.16, ridge_color.darkened(0.2),
+		Vector3(0, 0.10, -0.52 * sc.z), Vector3(0, 0, PI * 0.5)))
+	var meat := sphere(0.40, meat_color, Vector3(0, 0.16, 0.04), Vector3(1.0, 0.34, 1.15))
+	meat.name = "Meat"
+	meat.material_override = material(meat_color, 0.55, 0.0, meat_color * 0.25)
+	meat.visible = open
+	root.add_child(meat)
 	return root
 
-static func meat(species: SpeciesData) -> MeshInstance3D:
-	var m := sphere(0.26, species.meat_color, Vector3.ZERO, Vector3(1.0, 0.45, 1.2))
+static func meat_blob(color: Color) -> MeshInstance3D:
+	var m := sphere(0.26, color, Vector3.ZERO, Vector3(1.0, 0.45, 1.2))
+	m.material_override = material(color, 0.5, 0.0, color * 0.3)
 	return m
 
 static func pearl(color: Color, radius := 0.09) -> MeshInstance3D:

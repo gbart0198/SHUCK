@@ -1,194 +1,275 @@
 extends Node
-## Persistent player state. Save is written on shift end only (SPEC §20).
+## Autoload "Game": owns the Empire, saving, autosave, offline earnings, and the
+## signals the HUD listens to. Every purchase goes through here so it gets a sound + toast.
 
-var state: Dictionary = SaveGame.default_state()
-var session: Dictionary = {}
-var last_error := ""
+signal changed
+signal toast(text: String, color: Color)
+signal banner(title: String, subtitle: String, color: Color)
+signal sold(amount: float)
+signal pet_hatched(id: String)
+signal reshelled
+signal zone_unlocked(i: int)
+
+const AUTOSAVE := 20.0
+## Flags that start a throwaway dev session straight into the game (no title screen, no saving).
+const DEV_FLAGS := ["--fresh", "--integration", "--demo", "--at-bench", "--pause"]
+
+var empire: Empire
+var store := SaveStore.new()
+var active_slot := -1            # save slot being played (-1 = none / unsaved dev session)
+var in_session := false          # false = sitting on the title screen
+var meta: Dictionary = {}        # slot name, created, last_played, play_time
+var offline_earned := 0.0
+var offline_seconds := 0.0
+var save_enabled := true
+var _autosave_t := 0.0
+var _play_accum := 0.0
+var _income_window: Array = []    # [time, amount] recent sales for a $/s readout
+var _clock := 0.0
 
 func _ready() -> void:
-	load_game()
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	empire = Empire.new()           # also the empty backdrop behind the title screen
+	var args := OS.get_cmdline_user_args()
+	var dev := false
+	for a in args:
+		if a in DEV_FLAGS or a.begins_with("--look=") or a.begins_with("--menu=") or a.begins_with("--shot="):
+			dev = true
+	if dev:
+		save_enabled = false
+		in_session = not "--title" in args
+	else:
+		store.migrate_legacy()
 
-func load_game() -> void:
-	var r := SaveGame.load_from(SaveGame.DEFAULT_PATH)
-	state = r.data
-	last_error = str(r.get("error", ""))
-	if not r.ok:
-		# A corrupt/newer save never blocks play; start clean and keep the reason.
-		state = SaveGame.default_state()
+# ------------------------------------------------------------------ save slots
+func has_saves() -> bool:
+	return not store.list().is_empty()
 
-func write_save() -> Error:
-	state["version"] = SaveGame.CURRENT_VERSION
-	var err := SaveGame.save_to(SaveGame.DEFAULT_PATH, state)
-	if err != OK:
-		last_error = "write_failed"
-	return err
+## Title screen "Continue": the most recently played slot.
+func continue_latest() -> bool:
+	var s := store.latest()
+	return s >= 0 and load_slot(s)
 
-func reset() -> void:
-	state = SaveGame.default_state()
-	session = {}
+func load_slot(slot: int) -> bool:
+	var data := store.read(slot)
+	if data.is_empty():
+		push_warning("SHUCK: save slot %d unreadable" % slot)
+		return false
+	empire = Empire.from_dict(data.get("empire", {}))
+	meta = data.get("meta", {})
+	active_slot = slot
+	in_session = true
+	_reset_session()
+	var now := Time.get_unix_time_from_system()
+	if empire.last_seen > 0.0 and now > empire.last_seen + 60.0:
+		offline_seconds = now - empire.last_seen
+		offline_earned = empire.offline(offline_seconds)
+	return true
+
+## Title screen "New Game": a fresh empire in the next free slot (never overwrites a save).
+func new_game() -> int:
+	var slot := store.next_free()
+	var now := Time.get_unix_time_from_system()
+	empire = Empire.new()
+	meta = {"name": "Save %d" % slot, "created": now, "last_played": now, "play_time": 0.0}
+	active_slot = slot
+	in_session = true
+	_reset_session()
+	Settings.tutorial_done = false
+	Settings.tutorial_step = 0
+	Settings.save()
 	write_save()
+	return slot
 
-func begin_session(pier_id: int, tide_ids: Array, seed_value: int, daily := false) -> void:
-	session = {
-		"pier": pier_id,
-		"tides": tide_ids,
-		"seed": seed_value,
-		"daily": daily,
-		"earnings": 0,
-		"tips": 0,
-		"walked_out": 0,
-		"pearls": 0,
-		"grades": {"S": 0, "A": 0, "B": 0, "C": 0, "F": 0},
-		"oysters": 0,
-		"perfect": 0,
-		"faints": 0,
-		"served": 0,
-		"ruined": 0,
-		"gulled": 0,
-		"luck": 0.0,
-	}
+func delete_slot(slot: int) -> void:
+	store.delete(slot)
 
-func money() -> int:
-	return int(state.get("money", 0))
-
-func add_money(amount: int) -> void:
-	state["money"] = money() + amount
-
-func pier() -> int:
-	return int(state.get("pier", 1))
-
-func set_pier(p: int) -> void:
-	state["pier"] = clampi(p, 1, 6)
-
-func credits_done() -> bool:
-	return bool(state.get("credits", false))
-
-func franchise() -> bool:
-	return credits_done()
-
-func upgrades() -> Dictionary:
-	return state.get("upgrades", {})
-
-func tier(line: String) -> int:
-	return int(upgrades().get(line, 1))
-
-func buy_upgrade(line: String) -> Dictionary:
-	var work := {"money": money(), "upgrades": upgrades().duplicate(), "pier": pier(), "franchise": franchise()}
-	var res := Economy.buy(work, line)
-	if res.ok:
-		state["money"] = work.money
-		state["upgrades"] = work.upgrades
-		Sfx.play("money")
-	return res
-
-func add_xp(amount: int) -> void:
-	state["xp"] = int(state.get("xp", 0)) + amount
-	state["rank"] = rank_for_xp(int(state["xp"]))
-
-func rank_for_xp(xp: int) -> int:
-	var b := Registry.balance
-	var r := 0
-	for i in b.ranks.size():
-		if xp >= b.ranks[i]:
-			r = i
-	return r
-
-func tip_bonus() -> float:
-	var b := Registry.balance
-	var t := 0.0
-	if tier("floor") >= 2:
-		t += b.neon_tip_bonus
-	t += float(mini(displayed_pearls(), b.display_pearl_cap)) * b.display_pearl_tip_bonus
-	t = minf(t, b.display_pearl_tip_cap if tier("floor") < 6 else b.display_pearl_tip_cap * b.aquarium_display_mult)
-	t += float(int(state.get("rank", 0))) * b.rank_tip_bonus
-	t += float(state.get("relics", []).size()) * b.relic_tip_bonus
-	return t
-
-func displayed_pearls() -> int:
-	return mini(Registry.balance.display_pearl_cap if Registry.balance != null else 12, state.get("pearls", []).size())
-
-func add_pearls(pearls: Array) -> int:
-	var added := 0
-	var log: Dictionary = state.get("log", {})
-	for p in pearls:
-		var pearl: Pearl = p if p is Pearl else Pearl.from_dict(p)
-		state["pearls"].append(pearl.to_dict())
-		var key := "%d-%d" % [pearl.shape, pearl.colour]
-		var entry: Dictionary = log.get(key, {"bestLustre": 0, "bestSize": 0.0, "count": 0})
-		entry["bestLustre"] = maxi(int(entry.get("bestLustre", 0)), pearl.lustre)
-		entry["bestSize"] = maxf(float(entry.get("bestSize", 0.0)), pearl.size)
-		entry["count"] = int(entry.get("count", 0)) + 1
-		log[key] = entry
-		added += 1
-	state["log"] = log
-	return added
-
-func log_entries() -> int:
-	return state.get("log", {}).size()
-
-func add_relic(id: String) -> bool:
-	var relics: Array = state.get("relics", [])
-	if relics.has(id):
-		return false
-	relics.append(id)
-	state["relics"] = relics
-	return true
-
-func award_badge(id: String) -> bool:
-	var badges: Array = state.get("badges", [])
-	if badges.has(id):
-		return false
-	badges.append(id)
-	state["badges"] = badges
-	for b in Registry.badges:
-		if b.id == id and b.reward_cosmetic != "":
-			grant_cosmetic(b.reward_cosmetic)
-	return true
-
-func has_badge(id: String) -> bool:
-	return state.get("badges", []).has(id)
-
-func grant_cosmetic(id: String) -> void:
-	var owned: Array = state.get("cosmetics", {}).get("owned", [])
-	if not owned.has(id):
-		owned.append(id)
-	state["cosmetics"]["owned"] = owned
-
-func owns_cosmetic(id: String) -> bool:
-	return state.get("cosmetics", {}).get("owned", []).has(id)
-
-func buy_cosmetic(id: String) -> bool:
-	var c := Registry.get_cosmetic(id)
-	if c == null or owns_cosmetic(id):
-		return false
-	if c.badge_only or money() < c.price:
-		return false
-	state["money"] = money() - c.price
-	grant_cosmetic(id)
-	return true
-
-func equip(slot: String, id: String) -> void:
-	state["cosmetics"]["equipped"][slot] = id
-
-func equipped(slot: String) -> String:
-	return str(state.get("cosmetics", {}).get("equipped", {}).get(slot, ""))
-
-func stats() -> Dictionary:
-	return state.get("stats", {})
-
-func bump_stat(key: String, amount := 1) -> void:
-	var s: Dictionary = state.get("stats", {})
-	s[key] = int(s.get(key, 0)) + amount
-	state["stats"] = s
-
-func record_shift(result: Dictionary) -> void:
-	state["shifts"] = int(state.get("shifts", 0)) + 1
-	state["money"] = money() + int(result.get("total", 0))
-	add_xp(int(result.get("xp", 0)))
-	var best: Dictionary = state.get("tideHighScores", {})
-	var key := str(result.get("tide_key", ""))
-	if key != "":
-		best[key] = maxi(int(best.get(key, 0)), int(result.get("total", 0)))
-	state["tideHighScores"] = best
-	bump_stat("walkedOut", int(result.get("walked_out", 0)))
+## Back to the title screen: save, then forget the session.
+func end_session() -> void:
 	write_save()
+	in_session = false
+	active_slot = -1
+	meta = {}
+	empire = Empire.new()
+	_reset_session()
+
+func _reset_session() -> void:
+	offline_earned = 0.0
+	offline_seconds = 0.0
+	_autosave_t = 0.0
+	_play_accum = 0.0
+	_income_window.clear()
+
+func write_save() -> void:
+	if not save_enabled or empire == null or not in_session or active_slot < 0:
+		return
+	var now := Time.get_unix_time_from_system()
+	empire.last_seen = now
+	meta["last_played"] = now
+	meta["play_time"] = float(meta.get("play_time", 0.0)) + _play_accum
+	_play_accum = 0.0
+	store.write(active_slot, empire, meta)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST or what == NOTIFICATION_APPLICATION_PAUSED:
+		write_save()
+
+func _process(dt: float) -> void:
+	if empire == null or not in_session:
+		return
+	if get_tree().paused:
+		return
+	_clock += dt
+	_play_accum += dt
+	var r := empire.tick(dt)
+	if float(r.sold) > 0.0:
+		_record_income(float(r.sold))
+	if str(r.event_started) != "":
+		for e in Catalog.EVENTS:
+			if e.id == r.event_started:
+				banner.emit(str(e.name), str(e.desc), e.color)
+				Sfx.play("fanfare", -4.0)
+	if str(r.event_ended) != "":
+		toast.emit("Event over", Color(0.8, 0.8, 0.8))
+	_autosave_t += dt
+	if _autosave_t >= AUTOSAVE:
+		_autosave_t = 0.0
+		write_save()
+
+func _record_income(v: float) -> void:
+	_income_window.append([_clock, v])
+
+## Cash per second over the last 10 s: your selling + the crew's.
+func income_per_sec() -> float:
+	while not _income_window.is_empty() and float(_income_window[0][0]) < _clock - 10.0:
+		_income_window.pop_front()
+	var s := 0.0
+	for e in _income_window:
+		s += float(e[1])
+	return maxf(s / 10.0, empire.passive_income())
+
+# ------------------------------------------------------------------ actions (UI + world call these)
+func do_sell() -> float:
+	var v := empire.sell()
+	if v > 0.0:
+		_record_income(v)
+		Sfx.play("money", -2.0)
+		sold.emit(v)
+		changed.emit()
+	return v
+
+func buy_upgrade(id: String) -> bool:
+	if empire.buy_upgrade(id):
+		Sfx.play("coin", -4.0, 1.0 + randf() * 0.1)
+		toast.emit("%s → Lv %d" % [Catalog.upgrade(id).name, empire.level(id)], Color(0.5, 0.9, 1.0))
+		changed.emit()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+func hire(id: String) -> bool:
+	if empire.hire(id):
+		Sfx.play("coin", -4.0, 0.9)
+		toast.emit("Hired a %s! (%d total)" % [Catalog.crew(id).name, empire.owned(id)], Color(1.0, 0.85, 0.4))
+		changed.emit()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+func train(id: String) -> bool:
+	if empire.train(id):
+		Sfx.play("coin", -4.0, 1.1)
+		var c := Catalog.crew(id)
+		toast.emit("%s %s Lv %d: x%s speed" % [c.name, "firmware" if bool(c.robot) else "training", empire.train_level(id), Num.short(empire.train_mult(id))], Color(0.55, 0.9, 0.85))
+		changed.emit()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+## Dump the bucket into the crew Dock Bin. Returns how many went in.
+func deposit_bin(zone_i := 0) -> int:
+	var n := empire.deposit_bin(zone_i)
+	if n > 0:
+		Sfx.play("thud", -4.0)
+		Sfx.play("pop", -8.0, 0.8)
+		var who := "" if empire.role_rate("shuck", zone_i) > 0.0 else "  (no Shuckers work this beach yet)"
+		toast.emit("Dumped %d oyster%s in the %s Dock Bin%s" % [n, "" if n == 1 else "s", Catalog.zone(zone_i).name, who], Color(0.55, 0.85, 0.95))
+		changed.emit()
+	elif empire.has_oysters():
+		Sfx.play("fail", -10.0)
+		toast.emit("Dock Bin is full. Upgrade the Warehouse.", Color(1, 0.5, 0.4))
+	else:
+		Sfx.play("beep", -12.0)
+		toast.emit("Your bucket is empty. Rake some oysters first.", Color(0.8, 0.8, 0.8))
+	return n
+
+func buy_lab() -> bool:
+	if empire.buy_lab():
+		Sfx.play("fanfare", -2.0)
+		banner.emit("ROBOTICS LAB BUILT", "Robots unlocked in CREW", Color(0.3, 1.0, 1.0))
+		changed.emit()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+func buy_factory() -> bool:
+	if empire.buy_factory():
+		Sfx.play("fanfare", -2.0)
+		toast.emit("Mega-Factory Lv %d: robots x%s" % [empire.factory, Num.short(empire.robot_mult())], Color(0.3, 1.0, 1.0))
+		changed.emit()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+func unlock_zone(i: int) -> bool:
+	if empire.unlock_zone(i):
+		Sfx.play("fanfare", -2.0)
+		banner.emit("%s UNLOCKED!" % str(Catalog.zone(i).name).to_upper(), "%s live here" % Catalog.zone(i).oyster, Catalog.zone(i).accent)
+		zone_unlocked.emit(i)
+		changed.emit()
+		write_save()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+func reshell() -> bool:
+	if empire.reshell():
+		Sfx.play("fanfare", 0.0, 0.8)
+		banner.emit("RE-SHELLED!", "Golden Shells: %d  ·  cash x%s forever" % [empire.shells, Num.short(empire.shell_mult())], Color(1.0, 0.85, 0.3))
+		reshelled.emit()
+		changed.emit()
+		write_save()
+		return true
+	Sfx.play("fail", -10.0)
+	return false
+
+func hatch(clam_id: String) -> String:
+	var id := empire.hatch(clam_id)
+	if id == "":
+		Sfx.play("fail", -10.0)
+		return ""
+	var p := Catalog.pet(id)
+	var rar: Dictionary = Catalog.RARITIES[int(p.rarity)]
+	Sfx.play("plink", -2.0)
+	if int(p.rarity) >= 4:
+		Sfx.play("fanfare", -2.0)
+	banner.emit("YOU GOT: %s!" % str(p.name).to_upper(), "%s  ·  x%s cash" % [rar.name, Num.short(float(p.mult))], rar.color)
+	pet_hatched.emit(id)
+	changed.emit()
+	return id
+
+func toggle_pet(i: int) -> void:
+	if not empire.toggle_equip(i):
+		toast.emit("Only %d pets can follow you" % Catalog.PET_SLOTS, Color(1, 0.5, 0.4))
+	changed.emit()
+
+func equip_best() -> void:
+	empire.equip_best()
+	changed.emit()
+
+func fuse(id: String) -> void:
+	var t := empire.fuse(id)
+	if t != "":
+		Sfx.play("fanfare", -3.0)
+		toast.emit("Fused into %s!" % Catalog.pet(t).name, Catalog.RARITIES[int(Catalog.pet(t).rarity)].color)
+		changed.emit()

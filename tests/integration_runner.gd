@@ -1,309 +1,269 @@
 extends Node
-## Runs inside the normal game (autoloads present). Triggered by:
-##   Godot --headless --path . -- --integration
-## Drives the real Player input loop, not just the pure OysterSim.
+## Drives the real game (autoloads, world, avatar, HUD, menus) through the whole loop.
+## Run: Godot --headless --path . -- --integration
 
-var fails: Array[String] = []
+var failures: Array[String] = []
+var checks := 0
 
-func ck(cond: bool, msg: String) -> void:
+func check(cond: bool, msg: String) -> void:
+	checks += 1
 	if cond:
 		print("  ok   ", msg)
 	else:
-		fails.append(msg)
+		failures.append(msg)
 		print("  FAIL ", msg)
 
-func near_tol(a: float, b: float, tol := 0.001) -> bool:
-	return absf(a - b) <= tol
-
-func frame(p: Player, dt := 0.016) -> void:
-	p._process(dt)
-
-func look_at_point(p: Player, point: Vector3) -> void:
-	var d: Vector3 = point - p.main_camera.global_position
-	p.rotation.y = atan2(-d.x, -d.z)
-	p.head.rotation.x = atan2(d.y, sqrt(d.x * d.x + d.z * d.z))
-	p._update_focus()
+func frames(n: int) -> void:
+	for i in n:
+		await get_tree().process_frame
 
 func run(main: Node) -> int:
-	var save_path := "user://save.json"
-	var backup := ""
-	if FileAccess.file_exists(save_path):
-		var f := FileAccess.open(save_path, FileAccess.READ)
-		backup = f.get_as_text()
-		f.close()
-	Game.load_game()
-	await get_tree().process_frame
-	main._on_start(1, [], false, false)
-	await get_tree().process_frame
-	var shift = main.shift
-	ck(shift != null, "shift scene built")
-	ck(shift.player != null, "player exists")
-	shift._spawn_ticket()
-	ck(shift.cards.size() == 1, "ticket card on rail")
-	var p = shift.player
-	look_at_point(p, shift.cards[0].global_position)
-	ck(p.focus == shift.cards[0], "raycast finds the ticket card")
-	if p.focus != null:
-		p.focus.begin(p)
-	ck(shift.active_ticket != null, "ticket accepted through Interactable.begin")
-	shift._spawn_from_active()
-	ck(shift.oysters.size() == 1, "oyster spawned on bench")
-	var o = shift.oysters[0]
-	look_at_point(p, o.global_position)
-	ck(p.focus == o, "raycast finds the oyster")
-	if p.focus != null:
-		p.focus.begin(p)
-	ck(p.sim == o.sim, "player holds the oyster")
-	# clear the pickup click
-	p.lmb_released = true
-	frame(p)
-	ck(not p.suppress_until_release, "pickup click consumed")
-	# ---- gesture 1: wedge via real input flags
-	p.lmb_pressed = true
-	frame(p)
-	ck(p.gesture_phase == Player.G.WEDGE and p.wedge_active, "wedge meter starts on LMB hold")
-	for i in 23:
-		p.lmb_pressed = false
-		frame(p)
-	p.lmb_released = true
-	frame(p)
-	ck(p.gesture_phase == Player.G.POP, "clean wedge release advances to POP")
-	# ---- gesture 2: pop
+	print("SHUCK Simulator integration")
+	var e := Game.empire
+	var av: Avatar = main.avatar
+	await frames(10)
+	var stations := get_tree().get_nodes_in_group("stations")
+	var kinds := {}
+	for s in stations:
+		kinds[s.kind] = int(kinds.get(s.kind, 0)) + 1
+	check(int(kinds.get("bench", 0)) == 8 and int(kinds.get("sell", 0)) == 8, "a bench and sell pad in every zone")
+	check(int(kinds.get("gate", 0)) == 7, "seven gates")
+	check(kinds.has("shop") and kinds.has("crew") and kinds.has("pets") and kinds.has("reshell"), "HQ booths exist")
+	check(get_tree().get_nodes_in_group("oysters").size() >= 30, "oyster beds are growing (%d)" % get_tree().get_nodes_in_group("oysters").size())
+	check(main.refs.gates.size() == 7, "all gates closed on a fresh save")
+
+	# --- walk
+	var start := av.global_position
+	Input.action_press("move_right")
+	await frames(45)
+	Input.action_release("move_right")
+	check(av.global_position.distance_to(start) > 0.5, "WASD moves the fisherman")
+
+	# --- rake
+	var o := av.nearest_oyster(999.0)
 	var guard := 0
-	while p.sim.pop_ring > 0.33 and guard < 60:
-		frame(p)
+	while e.bag_count() < 3 and guard < 200:
 		guard += 1
-	p.lmb_pressed = true
-	frame(p)
-	ck(p.sim.state == OysterSim.State.OPEN, "pop click opens the shell")
-	ck(p.gesture_phase == Player.G.SLIDE, "advances to SLIDE")
-	# ---- gesture 3: slide
-	var vs: Vector2 = get_viewport().get_visible_rect().size
-	var seam_y := func(prog: float) -> float:
-		return vs.y * 0.52 + sin(prog * PI) * vs.y * 0.05
-	p.lmb_pressed = true
-	frame(p)
-	p.lmb_pressed = false
-	p.slide_active = true
-	var step := 0
+		o = _oyster_in_zone(0, av)
+		if o == null:
+			await frames(5)
+			continue
+		av.global_position = o.global_position + Vector3(1.0, 0.2, 1.0)
+		await frames(2)
+		av.act(true)
+		await frames(1)
+	check(e.bag_count() >= 3, "raking oysters fills the bucket (%d)" % e.bag_count())
+	check(int(e.stats.caught) >= 3, "caught stat counts")
+	# --- shuck at the bench
+	var bench := _station("bench", 0)
+	av.global_position = bench.global_position + Vector3(0, 0.3, -1.2)
+	await frames(4)
+	check(av.station == bench, "standing at the bench registers")
 	guard = 0
-	while p.gesture_phase == Player.G.SLIDE and guard < 200:
-		step += 1
-		var prog: float = clampf(float(step * 12) / (vs.x * 0.44), 0.0, 1.0)
-		p.virtual_mouse = Vector2(vs.x * 0.28 + step * 12, seam_y.call(prog))
-		frame(p)
+	while e.has_oysters() and guard < 400:
 		guard += 1
-	ck(p.sim.surgical, "surgical slide (inside tolerance at speed)")
-	ck(p.gesture_phase == Player.G.RESEAT, "slide completes into RESEAT")
-	# ---- gesture 4: reseat
-	p.lmb_pressed = true
-	frame(p)
-	p.lmb_pressed = false
-	p.virtual_mouse = p.plate_screen_center()
-	for i in 12:
-		frame(p)
-	p.lmb_released = true
-	frame(p)
-	ck(p.sim == null and shift.plate.portions.size() == 1, "reseat over plate puts it on the pass")
-	ck(shift.plate.portions.size() > 0 and shift.plate.portions[0].grade == "S", "grade S from a clean four-gesture run")
-	# ---- finish the remaining portions of the 3-oyster ticket
-	var safety := 0
-	while shift.active_ticket != null and not shift.active_ticket.completed and safety < 8:
-		safety += 1
-		shift._spawn_from_active()
-		if shift.oysters.is_empty():
-			break
-		var o2 = shift.oysters[0]
-		p.pick_up(o2)
-		p.suppress_until_release = false
-		var s2: OysterSim = o2.sim
-		s2.wedge_begin()
-		s2.wedge_tick(0.40)
-		s2.wedge_release()
-		s2.pop_begin()
-		s2.pop_tick(0.36)
-		s2.pop_click()
-		s2.slide_begin()
-		for i2 in 12:
-			s2.slide_sample(0.0, 900.0, 0.016, s2.tolerance_px(1))
-		s2.slide_finish()
-		s2.reseat(true)
-		p._resolve()
-		shift._serve_from_plate()
-	while shift.active_ticket != null and not shift.active_ticket.completed and not shift.plate.portions.is_empty():
-		shift._serve_from_plate()
-	ck(shift.earnings + shift.tips > 0, "ticket paid out: ¢%d" % (shift.earnings + shift.tips))
-	ck(shift.stars >= 0, "stars computed")
-	ck(shift.active_ticket == null, "ticket left the pass")
-	var before := Game.money()
-	shift._end_shift()
-	await get_tree().process_frame
-	ck(shift.ended, "shift ended")
-	ck(shift.ledger != null, "ledger shown")
-	ck(Game.money() >= before, "money recorded")
-	ck(FileAccess.file_exists("user://save.json"), "save written on shift end")
-	var r := SaveGame.load_from("user://save.json")
-	ck(r.ok, "save readable")
-	print("  result total: ", shift.earnings + shift.tips, " quota: ", shift.quota, " walked: ", shift.walked_out,
-		" stars: ", shift.stars, " met: ", shift.earnings + shift.tips >= shift.quota)
-	# purchase + reload: an upgrade must survive a restart
-	Game.state["money"] = 500
-	Game.state["upgrades"]["knife"] = 1
-	Game.state["pier"] = 1
-	var buy := Game.buy_upgrade("knife")
-	ck(buy.ok and Game.tier("knife") == 2, "bought knife tier 2 for 120")
-	ck(Game.money() == 380, "money deducted to 380")
-	Game.write_save()
-	Game.load_game()
-	ck(Game.tier("knife") == 2, "upgrade survives a reload")
-	ck(Game.money() == 380, "money survives a reload")
-	# ---- photo mode, debug panel, analytics
-	main.show_lobby()
-	await get_tree().process_frame
-	main._on_start(1, [], false, false)
-	await get_tree().process_frame
-	var fs = main.shift
-	fs._toggle_photo()
-	ck(fs.photo and fs.player.photo_mode, "photo mode freezes the shift and frees the camera")
-	fs._toggle_photo()
-	ck(not fs.photo and not fs.player.photo_mode, "photo mode exits")
-	fs._toggle_debug()
-	ck(fs.debug_panel != null, "debug balance panel opens (F3)")
-	fs._toggle_debug()
-	ck(fs.debug_panel == null, "debug panel closes")
-	ck(FileAccess.file_exists("user://shift_log.csv"), "shift analytics CSV written")
-	fs._end_shift()
-	await get_tree().process_frame
-	# ---- credits on pier 6
-	Game.state["pier"] = 6
-	main.show_lobby()
-	await get_tree().process_frame
-	main._on_start(6, [], false, false)
-	await get_tree().process_frame
-	var cs = main.shift
-	cs.earnings = cs.quota
-	cs.tips = 0
-	cs._end_shift()
-	await get_tree().process_frame
-	ck(Game.state.get("credits", false), "pier 6 quota sets credits")
-	ck(cs.ledger != null, "credits ledger shown")
-	# ---- gadgets
-	main.show_lobby()
-	await get_tree().process_frame
-	main._on_start(1, [], false, false)
-	await get_tree().process_frame
-	var gs = main.shift
-	Game.state["gadgets"]["prybar"] = 1
-	gs._spawn_ticket()
-	gs._on_ticket_clicked(gs.cards[0])
-	gs._spawn_from_active()
-	var go = gs.oysters[0]
-	gs._use_gadget("prybar")
-	ck(gs.player.prybar_next, "Pry Bar arms")
-	gs.player.pick_up(go)
-	ck(gs.player.gesture_phase == Player.G.POP and go.sim.state == OysterSim.State.SEATED,
-		"Pry Bar skips the wedge")
-	ck(int(Game.state["gadgets"]["prybar"]) == 0, "Pry Bar consumed")
-	gs.player.release_gesture()
-	Game.state["gadgets"]["pager"] = 1
-	gs._use_gadget("pager")
-	ck(gs.active_ticket == null and gs.walked_out == 0, "Pager deletes a ticket with no penalty")
-	ck(int(Game.state["gadgets"]["pager"]) == 0, "Pager consumed")
-	gs._end_shift()
-	await get_tree().process_frame
-	# ---- boss shift on pier 3
-	main.show_lobby()
-	await get_tree().process_frame
-	main._on_start(3, ["slippery"], true, false)
-	await get_tree().process_frame
-	var bs = main.shift
-	ck(bs.boss_mode, "boss shift starts in boss mode")
-	ck(bs.boss_oyster != null, "King Oyster on the bench")
-	ck(near_tol(bs.player._tide_tolerance(), 0.7), "Slippery halves tolerance to 0.7")
-	var boss = bs.boss_oyster
-	var bp = bs.player
-	bp.pick_up(boss)
-	bp.suppress_until_release = false
-	var bsim: OysterSim = boss.sim
-	bsim.wedge_begin()
-	bsim.wedge_tick(0.40)
-	bsim.wedge_release()
-	bsim.pop_begin()
-	bsim.pop_tick(0.36)
-	bsim.pop_click()
-	bsim.slide_begin()
-	for i in 14:
-		bsim.slide_sample(0.0, 900.0, 0.016, bsim.tolerance_px(6))
-	bsim.slide_finish()
-	bsim.reseat(true)
-	bp._resolve()
-	ck(bs.boss_done, "boss plated with time left")
-	ck(Game.state.get("bosses", []).has(3), "boss recorded for pier 3")
-	ck(bs.pearls_found.size() > 0, "Named Pearl awarded")
-	bs._end_shift()
-	await get_tree().process_frame
-	ck(bs.ledger != null, "boss ledger shown")
-	# ---- Next shift restarts on the highest unlocked pier
-	main.start_again()
-	await get_tree().process_frame
-	ck(main.shift != null and not main.shift.ended, "Next shift starts a fresh shift")
-	main.shift._end_shift()
-	await get_tree().process_frame
-	# ---- Tides and Daily Tide
-	main.show_lobby()
-	await get_tree().process_frame
-	main._on_start(2, ["crowded", "hungry"], false, false)
-	await get_tree().process_frame
-	var tide_shift = main.shift
-	ck(tide_shift.quota == 450, "Hungry raises quota 300 -> 450")
-	ck(tide_shift.tickets_total == 15, "Crowded raises tickets 10 -> 15")
-	ck(near_tol(tide_shift._tide_product("payout_mult"), 2.25), "Crowded x1.5 * Hungry x1.5 payout")
-	tide_shift._end_shift()
-	await get_tree().process_frame
-	main._on_start(1, ["neap"], false, true)
-	await get_tree().process_frame
-	ck(main.shift.daily, "Daily Tide shift is marked daily")
-	main.shift._end_shift()
-	await get_tree().process_frame
-	# ---- every pier builds and its species pool resolves
-	for pid in range(1, 7):
-		main.show_lobby()
+		av.act()
+	check(not e.has_oysters() and e.meat_count >= 3, "shucking turns oysters into meat (%d)" % e.meat_count)
+	# --- sell
+	var cash0 := e.cash
+	var sell := _station("sell", 0)
+	av.global_position = sell.global_position + Vector3(0, 0.3, 0)
+	await frames(4)
+	check(e.cash > cash0 and e.meat_count == 0, "stepping on the sell pad sells (%s)" % Num.cash(e.cash))
+	# --- buy upgrades through the menu
+	e.cash = 1e5
+	main.open_menu("shop")
+	await frames(3)
+	check(main.menu != null and not av.input_enabled, "menu opens and pauses input")
+	check(Game.buy_upgrade("rake") and e.level("rake") == 1, "buy Rake Power")
+	for tab in ["crew", "pets", "reshell", "map", "shop"]:
+		main.open_menu(tab)
+		await frames(2)
+		check(main.menu.tab == tab and main.menu.list.get_child_count() > 0, "menu tab %s renders" % tab)
+	main.close_menu()
+	await frames(2)
+	check(main.menu == null and av.input_enabled, "menu closes")
+	# --- gates
+	check(Game.unlock_zone(1), "unlock Rocky Point")
+	await frames(3)
+	check(not main.refs.gates.has(1), "the gate opens")
+	main.menu = null
+	# --- crew
+	e.cash = 1e7
+	for id in ["deckhand", "deckhand", "shucker", "coordinator"]:
+		Game.hire(id)
+	await frames(3)
+	check(main.crew_yard.npcs.get("deckhand", []).size() == 2, "hired deckhands appear")
+	check(int(e.assignment()["deckhand"][0]) == 2 and main.crew_yard.shown_at("deckhand", 0) == 2, "crew fill the Muddy Shallows first")
+	# --- feed the Dock Bin yourself, train the crew
+	var bin_st := _station("bin", 0)
+	check(bin_st != null, "the Dock Bin is a station")
+	e.bag = {"0": 4}
+	e.bins[0] = 0.0
+	e.bin_values[0] = 0.0
+	av.global_position = bin_st.global_position + Vector3(0, 0.3, -1.8)
+	await frames(4)
+	check(av.station == bin_st, "standing at the Dock Bin registers")
+	av.bin_t = 0.0
+	av.use()
+	check(e.bag_count() == 0 and float(e.bins[0]) >= 3.9, "use at the Dock Bin dumps the bucket there (%s)" % e.bins[0])
+	var lv0 := e.train_level("shucker")
+	check(Game.train("shucker") and e.train_level("shucker") == lv0 + 1, "train Shuckers")
+	var sh: Node = main.crew_yard.npcs.get("shucker", [])[0]
+	var sh_start: Vector3 = sh.position
+	for i in 90:
 		await get_tree().process_frame
-		main._on_start(pid, [], false, false)
+	check(sh.mode != "wait" and sh.position.distance_to(sh_start) > 0.05, "a Shucker goes to work on the bin (%s)" % sh.mode)
+	var sold0 := e.lifetime
+	for i in 120:
 		await get_tree().process_frame
-		var ts = main.shift
-		var ok_pier: bool = ts != null and ts.pier.id == pid
-		var ok_species := true
-		for sid in ts.pier.species:
-			if Registry.get_species(str(sid)) == null:
-				ok_species = false
-		ck(ok_pier and ok_species, "pier %d builds with its species pool" % pid)
-		ck(ts.quota >= Registry.get_pier(pid).quota, "pier %d quota scales with Tides" % pid)
-		ts._end_shift()
+	e.tick(60.0, false)
+	check(e.lifetime > sold0, "crew earn on their own")
+	# beach slots: fill Rocky Point, spill to the Shallows, then refuse
+	while e.free_slots("deckhand") > 0:
+		Game.hire("deckhand")
+	check(not Game.hire("deckhand") and int(e.assignment()["deckhand"][1]) == Catalog.crew_slots(1, "deckhand"), "full beaches block hiring (Shallows, then Rocky Point)")
+	var moved_before: int = main.crew_yard.shown_at("deckhand", 2)
+	e.cash = 1e9
+	check(Game.unlock_zone(2) and e.free_slots("deckhand") > 0, "a new gate opens crew slots")
+	await frames(3)
+	check(Game.hire("deckhand"), "hire into the new beach")
+	await frames(3)
+	check(main.crew_yard.shown_at("deckhand", 2) == moved_before + 1, "the new hire works the new beach")
+	check(Game.buy_lab() and Game.hire("rakebot"), "robots: lab + RakeBot")
+	await frames(2)
+	check(main.crew_yard.npcs.get("rakebot", []).size() == 1, "RakeBot shows up")
+	# --- pets
+	e.pearls = 100
+	var pid := Game.hatch("common")
+	await frames(3)
+	check(pid != "" and av.pets.size() == 1, "hatched %s follows you" % pid)
+	# --- events
+	e.start_event("golden_tide")
+	check(is_equal_approx(e.cash_mult(), Catalog.quality_mult(e.level("quality")) * e.shell_mult() * e.pet_mult() * 2.0), "Golden Tide doubles cash")
+	e.event_id = ""
+	# --- teleport
+	av.teleport(WorldBuilder.zone_spawn(1))
+	await frames(3)
+	check(WorldBuilder.zone_at(av.global_position.x) == 1, "teleport to Rocky Point")
+	# --- alt-tab: the world keeps running (idle game), the mouse is released, a held click is dropped
+	av.holding = true
+	var earned0 := e.lifetime
+	# delivered down the whole tree, like the engine does on a real alt-tab
+	get_tree().root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	for i in 30:
 		await get_tree().process_frame
-	# relic collection
-	main.show_lobby()
-	await get_tree().process_frame
-	main._on_start(1, [], false, false)
-	await get_tree().process_frame
-	var rs = main.shift
-	var relics_nodes = []
-	for c in rs.get_children():
-		if c is Relic:
-			relics_nodes.append(c)
-	ck(not relics_nodes.is_empty(), "relic is hidden in the pier")
-	if not relics_nodes.is_empty():
-		relics_nodes[0].begin(rs.player)
-		ck(Game.state.get("relics", []).has("jetty_wheel"), "relic collected into the save")
-	if backup != "":
-		var f2 := FileAccess.open(save_path, FileAccess.WRITE)
-		f2.store_string(backup)
-		f2.close()
-	else:
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(save_path))
+	check(not get_tree().paused and main.pause_menu == null, "tabbing out does not pause the game")
+	check(not av.holding and av.focus_lost, "tabbing out drops a held click and frees the mouse")
+	check(e.lifetime > earned0, "the crew keep earning while the window is unfocused")
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	Input.parse_input_event(click)
+	await frames(2)
+	check(not av.focus_lost, "clicking back in retakes control")
+	# regression: pausing from inside that notification used to pause the world but fail to add the
+	# menu, leaving the game frozen with no menu and no input
+	var probe: Node = load("res://tests/focus_probe.gd").new()
+	probe.main = main
+	main.add_child(probe)
+	get_tree().root.propagate_notification(NOTIFICATION_APPLICATION_FOCUS_OUT)
+	await frames(3)
+	check(main.pause_menu != null and main.pause_menu.is_inside_tree() and get_tree().paused, "a pause opened mid-notification still shows its menu")
+	probe.queue_free()
+	main.close_pause()
+	await frames(2)
+	check(not get_tree().paused and main.pause_menu == null, "and resumes cleanly")
+	# --- pause menu
+	var esc := InputEventKey.new()
+	esc.physical_keycode = KEY_ESCAPE
+	esc.pressed = true
+	Input.parse_input_event(esc)
+	await frames(3)
+	check(main.pause_menu != null and get_tree().paused, "Esc opens the pause menu and pauses the world")
+	check(not main.avatar.input_enabled, "pause releases the mouse / stops input")
+	var cash_paused := e.cash
+	for p in ["howto", "controls", "settings", "main"]:
+		main.pause_menu.show_page(p)
+		await frames(2)
+		check(main.pause_menu.body.get_child_count() > 0, "pause page %s renders" % p)
+	for i in 30:
+		await get_tree().process_frame
+	check(e.cash == cash_paused, "nothing earns while paused")
+	main.close_pause()
+	await frames(2)
+	check(main.pause_menu == null and not get_tree().paused and main.avatar.input_enabled, "resume unpauses")
+	# --- rebinding
+	var j := InputEventKey.new()
+	j.physical_keycode = KEY_J
+	Settings.rebind("jump", j)
+	check(Settings.key("jump") == "J" and InputMap.action_has_event("jump", j), "jump rebound to J")
+	var sp := InputEventKey.new()
+	sp.physical_keycode = KEY_SPACE
+	Settings.rebind("use", sp)
+	check(Settings.key("use") == "Space" and Settings.keys("jump") == "J", "rebinding steals the key from its old action (%s / %s)" % [Settings.key("use"), Settings.keys("jump")])
+	var m4 := InputEventMouseButton.new()
+	m4.button_index = MOUSE_BUTTON_RIGHT
+	Settings.rebind("interact", m4)
+	check(Settings.key("interact") == "RMB", "mouse buttons can be bound")
+	Settings.reset_bindings()
+	check(Settings.key("jump") == "Space" and Settings.key("use") == "E" and Settings.key("interact") == "LMB", "reset restores defaults")
+	# --- tutorial
+	var tut: Tutorial = main.hud.tutorial
+	tut.restart()
+	await frames(2)
+	check(tut.active and tut.step == 0, "tutorial starts at step 1")
+	main.avatar.look_total += 1000.0
+	await frames(3)
+	check(tut.step == 1, "looking around advances the tutorial")
+	check(tut.body_lbl.text.contains("W") and tut.body_lbl.text.contains("D"), "tutorial text names the bound keys")
+	tut.skip()
+	check(not tut.active and Settings.tutorial_done, "tutorial can be skipped")
+	# --- re-shell rebuilds the world
+	e._earn(e.reshell_cost())
+	check(Game.reshell(), "Re-Shell")
+	await get_tree().create_timer(1.6).timeout
+	await frames(5)
+	check(e.shells == 1 and e.zones_unlocked == 1, "run reset with a Golden Shell")
+	check(main.refs.gates.size() == 7, "gates are back after the Re-Shell")
+	check(is_instance_valid(main.avatar) and main.avatar.pets.size() == 1, "pets survive the Re-Shell")
+	# --- title screen (built standalone; the real one sits behind a scene reload)
+	var tm := TitleMenu.new()
+	main.add_child(tm)
+	await frames(2)
+	var names := ["Continue", "Load", "New", "Settings", "Quit"]
+	check(names.all(func(n: String) -> bool: return tm.holder.get_node_or_null(n) != null), "title menu: Continue, Load Save, New Game, Settings, Quit")
+	tm.show_page("settings")
+	await frames(2)
+	check(tm.page == "settings" and tm.holder.get_child_count() > 0, "title settings page renders")
+	tm.show_page("load")
+	await frames(2)
+	check(tm.page == "load", "title load page renders")
+	tm.queue_free()
 	print("")
-	if fails.is_empty():
-		print("INTEGRATION PASS")
+	if failures.is_empty():
+		print("PASS — %d checks" % checks)
 		return 0
-	print("INTEGRATION FAIL: ", fails)
+	print("FAIL — %d/%d" % [failures.size(), checks])
+	for f in failures:
+		print("   * ", f)
 	return 1
+
+func _station(kind: String, zone_i: int) -> Station:
+	for s in get_tree().get_nodes_in_group("stations"):
+		if s.kind == kind and s.zone_i == zone_i:
+			return s
+	return null
+
+func _oyster_in_zone(z: int, av: Avatar) -> OysterPickup:
+	var best: OysterPickup = null
+	var bd := INF
+	for o in get_tree().get_nodes_in_group("oysters"):
+		var op := o as OysterPickup
+		if op.zone_i != z or op.dead:
+			continue
+		var d := op.global_position.distance_to(av.global_position)
+		if d < bd:
+			bd = d
+			best = op
+	return best

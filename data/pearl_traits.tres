@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="PearlTraitTable" format=3]
-
-[ext_resource type="Script" path="res://scripts/core/pearl_trait_table.gd" id="1_fk3fw"]
-
-[resource]
-script = ExtResource("1_fk3fw")
-ids = PackedStringArray("common", "lustrous", "flawed", "twin", "cultured", "mother_of_pearl", "tidewrought")
-weights = PackedFloat32Array(79.9, 12, 5, 2, 0.9, 0.09, 0.01)
-value_mults = PackedFloat32Array(1, 1, 0.4, 1, 1, 1, 1)

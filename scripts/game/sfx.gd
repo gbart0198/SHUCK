@@ -40,6 +40,11 @@ func _build() -> void:
 	_cache["splash"] = _noise(0.25, 0.4, 2200.0)
 	_cache["drill"] = _noise(0.30, 0.25, 3000.0)
 	_cache["door"] = _tone([90.0], 0.5, 0.3, "sine", 8.0)
+	_cache["pop"] = _tone([620.0, 930.0], 0.09, 0.4, "sine", 30.0)
+	_cache["stab"] = _noise(0.06, 0.45, 2600.0)
+	_cache["perfect"] = _tone([1046.0, 1318.0, 1568.0], 0.28, 0.35, "triangle", 10.0)
+	_cache["fanfare"] = _tone([523.0, 659.0, 784.0, 1046.0], 0.7, 0.35, "triangle", 3.5)
+	_cache["swing"] = _noise(0.08, 0.2, 900.0)
 
 func _envelope(i: int, n: int, decay: float) -> float:
 	var t := float(i) / float(RATE)

@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="UpgradeData" format=3]
-
-[ext_resource type="Script" path="res://scripts/core/upgrade_data.gd" id="1_brr8v"]
-
-[resource]
-script = ExtResource("1_brr8v")
-line = "auto"
-name_key = "UP_AUTO_1"
-desc_key = "UP_AUTO_1_D"

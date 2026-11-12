@@ -1,100 +1,105 @@
-# SHUCK
+# SHUCK Simulator
 
-*A friendslop oyster bar. Four hands, one knife, no refunds.*
+*Rake oysters. Shuck oysters. Sell oysters. Hire robots to do it for you.*
 
-Godot 4.7.2 project. Built from `SPEC.md`; every balance number is a `.tres` resource under `res://data/`.
+A number-go-up oyster simulator (the Roblox "simulator" loop) played in first person, in SHUCK's original
+low-poly, foggy, dusk-lit pier style.
+You start as a **Lowly Fisherman** with a rake and a red bucket on a muddy beach, and you work your
+way up to an automated coastal empire run by deckhands, coordinators, ShuckBots and Sell Drones, with
+a Golden Lobster floating behind your head.
 
-## Status
+Godot 4.7.2. Everything is primitives + code: no downloaded assets, procedural sound.
 
-| Milestone | State |
+## The loop
+
+1. **Catch.** Click oysters in the tidal beds to rake them loose (or hold the mouse button to keep raking). They fly into your bucket.
+2. **Shuck.** Stand at a **SHUCK** bench and click to stab. A needle sweeps a meter. Click in the **gold** band for a **PERFECT** (triple damage, double meat, double pearl chance).
+3. **Sell.** Walk onto a **SELL** dock. Your meat *and* everything in the crew's Meat Crate turns into cash.
+4. **Upgrade.** Rake Power, Bigger Bucket, Sharper Knife, Meat Quality, Sneakers, Pearl Luck, Tide Magnet (auto-rakes around you) and Warehouse.
+5. **Expand.** Buy open the gates along the coast. Each zone has a fancier oyster worth a lot more:
+   Muddy Shallows → Rocky Point → Kelp Forest → Coral Reef → Neon Lagoon → Volcano Vent → Abyssal Trench → Golden Atoll.
+6. **Automate.** At Crew HQ, hire **Deckhands** (fill the Dock Bin), **Shuckers** (Dock Bin → Meat Crate) and
+   **Coordinators** (sell the crate, and every coordinator speeds the whole crew up 10%). Build the **Robotics Lab**
+   for **RakeBots**, **ShuckBot 3000s** and **Sell Drones**, then the **Mega-Factory** to double every robot per level.
+   You can watch your crew walk the yard. They keep working while the game is closed (half speed, up to 8 h).
+7. **Pets.** Shucking turns up pearls. Spend them on Mystery Clams at the pet hatchery for pets (Common → SECRET)
+   that multiply all cash. Three follow you around. Fuse three duplicates into the next rarity.
+8. **Re-Shell.** Once a run has earned enough, sell the whole operation for a **Golden Shell** (+50% cash forever).
+   You keep pets, pearls and your rank title.
+
+Random events roll every few minutes: **Golden Tide** (x2 cash), **Pearl Storm** (x5 pearls),
+**Oyster Frenzy** (instant regrowth) and **Crew Coffee Break** (crew x3).
+
+The **NEXT GOAL** card in the top right always names one concrete thing to do next.
+
+Rank titles follow all-time earnings: Lowly Fisherman, Mudlark, Deckhand, Head Shucker, Foreman, Harbourmaster,
+Oyster Baron, Shellionaire, Oyster Emperor, Poseidon's Accountant.
+
+## Controls
+
+First person. Every binding below is the default; rebind any of them in **Esc → Controls**
+(saved to `user://settings.json`).
+
+| Action | Default |
 | --- | --- |
-| **M0** Grey-box shuck | **Done.** Four gestures with the §5 timings, grade stamp, sounds, hand spring, hands in a separate viewport. |
-| **M1** One full shift | **Done.** Ticket rail, patience/walk-outs, 5 species in play, grading, payout/tips, ledger, upgrade shop, pearl log, versioned save. |
-| **M2** Piers 1–2 + polish | **Mostly done.** Ghost hand, gulls, shop dog, cosmetics, 12 badges, pearl case and log, localisation. Missing: full voice/emote/throw layer, all status effects. |
-| **M3** Piers 3–6, bosses, relics, Tides | **Done at the systems level.** Six pier palettes, six species + King Oyster, boss shifts on 3–6, six relics, eight Tides, Daily Tide, credits flag. New levels reuse one room kit. |
-| **M4** Co-op netcode | **Stub.** Host/join, shift-seed sync and static crew avatars. Live co-op verbs, transform sync and grade validation are not implemented. Single-player never touches it. |
-| **M5** Ship polish | **Partial.** Photo mode, debug balance panel, shift CSV analytics, accessibility settings, localisation. Steam achievement integration, Deck verification and a store page are not done. |
+| Look | Mouse |
+| Walk | WASD / arrow keys |
+| Sprint | Shift |
+| Jump | Space |
+| Rake / stab / buy a gate | Left mouse (hold to repeat) |
+| Use booth / open gate | E |
+| Shop · Crew · Pets · Re-Shell · Map | B · C · P · R · M |
+| Pause (How to play, Controls, Settings, tutorial, quit) | Esc (fixed) |
 
-The honest list of divergences and stubbed pieces is in `DECISIONS.md`.
+A 10-step tutorial runs on first launch and names whatever keys you have bound. Skip or replay it from
+the pause menu. Settings: mouse sensitivity, FOV, volume, invert Y, head bob. Walking up to a booth at
+HQ also opens its menu. Losing window focus pauses the game.
+
+## Look
+
+Each zone uses one of the original pier palettes (dusk, overcast, kelp, violet, teal, ember, night,
+gold dawn); sky, fog and sunlight cross-fade as you walk the boardwalk between zones. Hands render in
+their own viewport (rake on the flats, knife at the bench, the oyster you're working on in the off hand).
 
 ## Run
 
 ```sh
-GODOT=/Users/gbart/Downloads/Godot.app/Contents/MacOS/Godot
-"$GODOT" --path /Users/gbart/dev/projects/shuck
+GODOT="C:/Users/gbart/Downloads/Godot_v4.7.2-stable_win64.exe/Godot_v4.7.2-stable_win64_console.exe"
+"$GODOT" --path .
 ```
 
-The game starts in the lobby. Pick a pier (Pier 1 is unlocked), optionally tick Tides, then **Start shift**.
+The save lives at `user://shuck_sim.json` and autosaves every 20 s and whenever a menu closes.
+Older shift-based saves (`user://save.json`) are ignored; the empire starts fresh.
 
-### Controls
-
-| Action | Key |
-| --- | --- |
-| Move / sprint | WASD / Shift |
-| Look | Mouse |
-| Interact, hold gestures | LMB |
-| Drop / secondary | RMB (reserved) |
-| Take a ticket / pick up an oyster / serve the plate | LMB on the object |
-| Foot pedal (release the wedge) | Space (after Bench T4) |
-| Flashlight | F |
-| Pause, FOV, ghost hand, subtitles | Esc |
-| Photo mode | P |
-| Debug balance panel | F3 |
-| Pry Bar / Pager | 1 / 2 |
-
-### The loop
-
-1. Look at a ticket on the rail and click it. Oysters appear on the bench.
-2. Click an oyster. Hold LMB, release in the green band (**wedge**).
-3. Click when the closing ring reaches the dot (**pop**).
-4. Hold LMB and drag along the seam (**slide**).
-5. Hold LMB, drag to the plate, release (**reseat**).
-6. Click the plate to serve. The ticket pays when every portion is served.
-7. When the shift ends, the ledger opens: spend in the shop, then next shift.
+Developer flags (after `--`): `--fresh` (don't load or write a save), `--demo` (mid-game state),
+`--menu=crew` (open a tab), `--pause` + `--pause-page=controls`, `--at-bench`, `--look=x,z,yaw,pitch`,
+`--shot=path.png` (screenshot after 3 s, then quit).
 
 ## Tests
 
 ```sh
-GODOT=/Users/gbart/Downloads/Godot.app/Contents/MacOS/Godot
-cd /Users/gbart/dev/projects/shuck
-
-# 1. import must be clean
 "$GODOT" --headless --import --path .
-
-# 2. required smoke test: FSM, grades, tickets, upgrades, 100k pearls, save
-"$GODOT" --headless --path . --script tests/smoke.gd
-
-# 3. wiring test: real input loop, raycast interactables, boss, Tides, save reload
-"$GODOT" --headless --path . -- --integration
+"$GODOT" --headless --path . --script tests/smoke.gd     # economy rules + a simulated player for pacing
+"$GODOT" --headless --path . -- --integration             # drives the real game: rake, shuck, sell, menus, crew, pets, Re-Shell
 ```
 
-`tests/smoke.gd` is the contract check: 129 assertions, exits non-zero on failure. It covers the oyster state machine (including crack and fight-back), S/A/B/C/F grading, ticket payout and tip maths, upgrade cost application and tier gates, the §8.2 trait distribution over 100,000 rolls, pearl chance over 100,000 spawns, and the versioned save round-trip.
-
-`tests/integration_runner.gd` runs inside the real game (autoloads present) and drives the actual `Player` input flags through all four gestures, raycast ticket/oyster/plate interactions, the ledger, a purchase + reload, a boss shift, all six piers, Tides, Daily Tide, relics and gadgets.
+`tests/smoke.gd` prints how long a bot that plays the loop takes to reach each milestone (gates, first crew,
+robots, Re-Shell). Use that when tuning numbers.
 
 ## Layout
 
 ```text
-project.godot           Godot 4.7 project, input map, autoloads
-data/*.tres             species, upgrades, piers, Tides, chaos, modifiers,
-                        badges, cosmetics, gadgets, pearls, interaction steps
-scripts/core/           pure logic (no scene tree): OysterSim, TicketSim,
-                        GradeLogic, PearlRoller, Economy, SaveGame, Registry
-scripts/game/           Player, HandsView, Shift, Interactable, OysterNode,
-                        PlateStation, TicketCard, autoloads (Data/Game/Sfx/Net), Main
-scripts/ui/             HUD, gesture overlay, lobby, shop, ledger, pearl log
-scripts/world/          procedural mesh factory, pier builder, gull, relic
-tests/                  smoke.gd (required), integration_runner.gd
-tools/                  gen_data.gd (regenerates data/*.tres), gen_i18n.py
-i18n/en.csv             359 localised keys
+scripts/sim/catalog.gd       every number: zones, upgrades, crew, robots, pets, ranks, events
+scripts/sim/empire.gd        the whole economy as one plain object (no nodes): testable headless
+scripts/sim/num.gd           1.23K / 4.56M / 7.89B formatting
+scripts/game/game_state.gd   autoload "Game": owns the Empire, save/autosave/offline, signals
+scripts/game/main.gd         builds the world, avatar, HUD, menus
+scripts/game/avatar.gd       first-person fisherman: look, move, rake, shuck, sell, pets
+scripts/game/hands_view.gd   first-person hands (own viewport): rake, knife, held oyster
+scripts/game/settings.gd     autoload "Settings": key bindings, mouse/FOV/volume, tutorial progress
+scripts/world/               coast builder, oyster beds, stations, crew yard, figures, FX
+scripts/ui/                  HUD, tabbed menu, pause menu (rebinding, settings), tutorial
+docs/legacy/                 the original shift/boss-based SPEC and DECISIONS, kept for reference
 ```
 
-## Data
-
-`tools/gen_data.gd` is the authoring source for the initial `data/*.tres`. After generation, the `.tres` files are the source of truth; a designer can retune them in the Godot inspector without touching code. `tools/gen_i18n.py` regenerates `i18n/en.csv`.
-
-The five biggest live knobs (wedge band, meter duration, pop window, slide tolerance, patience, pearl base value) are exposed in the F3 debug panel. Every shift appends a row to `user://shift_log.csv` for retuning.
-
-## Save
-
-`user://save.json`, schema version 1 (SPEC §20), written on shift end and when the post-shift shop closes. Mid-shift there are no writes.
+Balance lives entirely in `scripts/sim/catalog.gd`.
